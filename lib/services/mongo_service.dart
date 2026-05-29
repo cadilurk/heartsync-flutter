@@ -1,28 +1,10 @@
-import 'package:mongo_dart/mongo_dart.dart';
-
+@Deprecated('Mobile apps must not connect directly to MongoDB. Use ApiClient instead.')
 class MongoService {
-  static late Db db;
+  MongoService._();
 
-  static Future<void> connect() async {
-    db = await Db.create(
-      'mongodb+srv://heartsync1402_db_user:PuqKrnsOsb6ZZTWB@cluster0.ybdv7qi.mongodb.net/?appName=Cluster0',
+  static Future<void> connect() {
+    throw UnsupportedError(
+      'Direct MongoDB access from Flutter is disabled. Configure a backend API and use ApiClient.',
     );
-
-    await db.open();
-
-    print('✅ MongoDB Connected');
-  }
-
-  static Future<void> testInsert() async {
-    final collection = db.collection('test_data');
-
-    await collection.insertOne({
-      'name': 'Kiet',
-      'age': 20,
-      'city': 'Nha Trang',
-      'createdAt': DateTime.now().toIso8601String(),
-    });
-
-    print('✅ Insert Success');
   }
 }
