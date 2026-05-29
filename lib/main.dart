@@ -1,7 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'services/mongo_service.dart';
 
-void main() => runApp(const HeartSyncApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await MongoService.connect();
+  await MongoService.testInsert();
+
+  runApp(const HeartSyncApp());
+}
 
 class HeartSyncApp extends StatelessWidget {
   const HeartSyncApp({super.key});
