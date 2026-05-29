@@ -26,6 +26,7 @@ const users = db.collection('users');
 const profiles = db.collection('profiles');
 const relationships = db.collection('coupleRelationships');
 const pairingCodes = db.collection('pairingCodes');
+const milestones = db.collection('milestones');
 
 await users.createIndex({ email: 1 }, { unique: true });
 await pairingCodes.createIndex({ code: 1 }, { unique: true });
@@ -252,6 +253,45 @@ app.put('/account/profile', auth, async (req, res) => {
   return res.json(ok(serializeProfile(profile)));
 });
 
+// POST /account/relationship/shift-date
+app.post('/account/relationship/shift-date', auth, async (req, res) => {
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    const profile = await profiles.findOne({ userId: req.user._id });
+    
+    let currentDateString = relationship 
+      ? relationship.relationshipStartDate 
+      : (profile ? profile.relationshipStartDate : null);
+      
+    if (!currentDateString) {
+      currentDateString = new Date().toISOString();
+    }
+    
+    const currentDate = new Date(currentDateString);
+    currentDate.setDate(currentDate.getDate() - 1); // Lùi ngày kỉ niệm về quá khứ 1 ngày
+    const newDateString = currentDate.toISOString();
+    
+    if (relationship) {
+      await relationships.updateOne(
+        { _id: relationship._id },
+        { $set: { relationshipStartDate: newDateString, updatedAt: new Date() } }
+      );
+    }
+    
+    await profiles.updateOne(
+      { userId: req.user._id },
+      { $set: { relationshipStartDate: newDateString, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    
+    return res.json(ok({ newStartDate: newDateString }));
+  } catch (error) {
+    console.error('Error shifting start date:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
 app.post('/pairing/generate', auth, async (req, res) => {
   if (await activeRelationshipFor(req.user._id)) {
     const error = fail('USER_ALREADY_PAIRED');
@@ -349,6 +389,171 @@ app.delete('/pairing/disconnect', auth, async (req, res) => {
     { $set: { status: 'disconnected', disconnectedAt: new Date(), updatedAt: new Date() } }
   );
   return res.json(ok(true));
+});
+
+// GET /milestones
+app.get('/milestones', auth, async (req, res) => {
+  const relationship = await activeRelationshipFor(req.user._id);
+  let query = {};
+  if (relationship) {
+    query = {
+      $or: [
+        { relationshipId: relationship._id },
+        { userId: req.user._id },
+        { userId: String(relationship.userAId) === String(req.user._id) ? relationship.userBId : relationship.userAId }
+      ]
+    };
+  } else {
+    query = { userId: req.user._id };
+  }
+  try {
+    const list = await milestones.find(query).sort({ date: 1 }).toArray();
+    const serialized = list.map(item => ({
+      id: item._id.toString(),
+      userId: item.userId.toString(),
+      relationshipId: item.relationshipId ? item.relationshipId.toString() : null,
+      title: item.title,
+      date: item.date,
+      icon: item.icon,
+      type: item.type || 'memory',
+      isCompleted: item.isCompleted ?? false,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString()
+    }));
+    return res.json(ok(serialized));
+  } catch (error) {
+    console.error('Error fetching milestones:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// POST /milestones
+app.post('/milestones', auth, async (req, res) => {
+  const { title, date, icon } = req.body;
+  if (!title || !date) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    const now = new Date();
+    const milestone = {
+      userId: req.user._id,
+      relationshipId: relationship ? relationship._id : null,
+      title: String(title).trim(),
+      date: String(date), // YYYY-MM-DD
+      icon: String(icon || '🎉'),
+      type: String(req.body.type || 'memory'), // 'memory' or 'challenge'
+      isCompleted: Boolean(req.body.isCompleted ?? false),
+      createdAt: now,
+      updatedAt: now
+    };
+    const result = await milestones.insertOne(milestone);
+    return res.json(ok({
+      id: result.insertedId.toString(),
+      userId: milestone.userId.toString(),
+      relationshipId: milestone.relationshipId ? milestone.relationshipId.toString() : null,
+      title: milestone.title,
+      date: milestone.date,
+      icon: milestone.icon,
+      type: milestone.type,
+      isCompleted: milestone.isCompleted,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    }));
+  } catch (error) {
+    console.error('Error creating milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// PUT /milestones/:id
+app.put('/milestones/:id', auth, async (req, res) => {
+  const { id } = req.params;
+  const { title, date, icon } = req.body;
+  if (!title || !date) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    const query = { _id: new ObjectId(id) };
+    const milestone = await milestones.findOne(query);
+    if (!milestone) {
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+    const isCreator = String(milestone.userId) === String(req.user._id);
+    const isPartner = relationship && (
+      String(milestone.relationshipId) === String(relationship._id) ||
+      String(milestone.userId) === String(String(relationship.userAId) === String(req.user._id) ? relationship.userBId : relationship.userAId)
+    );
+    if (!isCreator && !isPartner) {
+      const error = fail('UNAUTHENTICATED', 401);
+      return res.status(error.status).json(error.body);
+    }
+    const now = new Date();
+    const { type, isCompleted } = req.body;
+    await milestones.updateOne(
+      query,
+      {
+        $set: {
+          title: String(title).trim(),
+          date: String(date),
+          icon: String(icon || '🎉'),
+          type: String(type || 'memory'),
+          isCompleted: Boolean(isCompleted ?? false),
+          updatedAt: now
+        }
+      }
+    );
+    const updated = await milestones.findOne(query);
+    return res.json(ok({
+      id: updated._id.toString(),
+      userId: updated.userId.toString(),
+      relationshipId: updated.relationshipId ? updated.relationshipId.toString() : null,
+      title: updated.title,
+      date: updated.date,
+      icon: updated.icon,
+      type: updated.type || 'memory',
+      isCompleted: updated.isCompleted ?? false,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString()
+    }));
+  } catch (error) {
+    console.error('Error updating milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// DELETE /milestones/:id
+app.delete('/milestones/:id', auth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    const query = { _id: new ObjectId(id) };
+    const milestone = await milestones.findOne(query);
+    if (!milestone) {
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+    const isCreator = String(milestone.userId) === String(req.user._id);
+    const isPartner = relationship && (
+      String(milestone.relationshipId) === String(relationship._id) ||
+      String(milestone.userId) === String(String(relationship.userAId) === String(req.user._id) ? relationship.userBId : relationship.userAId)
+    );
+    if (!isCreator && !isPartner) {
+      const error = fail('UNAUTHENTICATED', 401);
+      return res.status(error.status).json(error.body);
+    }
+    await milestones.deleteOne(query);
+    return res.json(ok(true));
+  } catch (error) {
+    console.error('Error deleting milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
 });
 
 app.use((_req, res) => {

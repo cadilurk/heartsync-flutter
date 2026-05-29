@@ -8,6 +8,8 @@ import '../features/account/services/account_service.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/auth/providers/current_user_provider.dart';
 import '../features/auth/services/auth_service.dart';
+import '../features/home/providers/milestone_provider.dart';
+import '../features/home/services/milestone_service.dart';
 import '../features/pairing/providers/pairing_provider.dart';
 import '../features/pairing/services/pairing_service.dart';
 import 'router.dart';
@@ -32,6 +34,9 @@ class HeartSyncApp extends StatelessWidget {
         ),
         ProxyProvider<ApiClient, PairingService>(
           update: (_, apiClient, previous) => previous ?? PairingService(apiClient),
+        ),
+        ProxyProvider<ApiClient, MilestoneService>(
+          update: (_, apiClient, previous) => previous ?? MilestoneService(apiClient),
         ),
         ChangeNotifierProxyProvider3<AuthService, AccountService, TokenStorage, AuthProvider>(
           create: (context) => AuthProvider(
@@ -65,6 +70,13 @@ class HeartSyncApp extends StatelessWidget {
           update: (_, pairingService, authProvider, previous) =>
               previous ??
               PairingProvider(pairingService: pairingService, authProvider: authProvider),
+        ),
+        ChangeNotifierProxyProvider<MilestoneService, MilestoneProvider>(
+          create: (context) => MilestoneProvider(
+            milestoneService: context.read<MilestoneService>(),
+          ),
+          update: (_, milestoneService, previous) =>
+              previous ?? MilestoneProvider(milestoneService: milestoneService),
         ),
       ],
       child: Consumer<AuthProvider>(

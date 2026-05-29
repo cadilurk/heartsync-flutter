@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test-db": "node src/test-db.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
