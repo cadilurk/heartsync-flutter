@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../app/theme.dart';
 import '../../account/screens/account_screen.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../store/screens/store_screen.dart';
 
 class HomeShellScreen extends StatefulWidget {
   const HomeShellScreen({super.key});
@@ -24,7 +25,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       const _GuardedCoupleTab(title: 'Heart Map', icon: Icons.map_outlined),
       const _GuardedCoupleTab(title: 'Heart Space', icon: Icons.image_outlined),
       const _GuardedCoupleTab(title: 'Challenges', icon: Icons.emoji_events_outlined),
-      const _StoreTab(),
+      const StoreScreen(),
       const AccountScreen(),
     ];
 
@@ -35,8 +36,13 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         onDestinationSelected: (index) {
           final restricted = index >= 1 && index <= 4;
           if (restricted && !isPaired) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Bạn cần ghép đôi trước khi dùng tính năng này.')),
+              const SnackBar(
+                content: Text('Bạn cần ghép đôi trước khi dùng tính năng này.'),
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 3),
+              ),
             );
             setState(() => _index = 0);
             return;
@@ -152,24 +158,3 @@ class _GuardedCoupleTab extends StatelessWidget {
   }
 }
 
-class _StoreTab extends StatelessWidget {
-  const _StoreTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: const [
-        Text('Heart Store', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-        SizedBox(height: 12),
-        Card(
-          child: ListTile(
-            leading: Icon(Icons.inventory_2_outlined),
-            title: Text('Gift suggestions'),
-            subtitle: Text('Store không bắt buộc paired trong MVP, nhưng vẫn có auth guard.'),
-          ),
-        ),
-      ],
-    );
-  }
-}
