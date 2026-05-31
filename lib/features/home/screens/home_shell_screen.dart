@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme.dart';
+import '../../../core/overlay/overlay_manager.dart';
 import '../../account/screens/account_screen.dart';
+import '../../alarm/screens/alarm_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class HomeShellScreen extends StatefulWidget {
@@ -16,11 +18,19 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
   int _index = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) OverlayManager().init(context);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isPaired = context.watch<AuthProvider>().isPaired;
     final pages = [
       const _HomeTab(),
-      const _GuardedCoupleTab(title: 'Heart Alarm', icon: Icons.notifications_none),
+      const AlarmScreen(),
       const _GuardedCoupleTab(title: 'Heart Map', icon: Icons.map_outlined),
       const _GuardedCoupleTab(title: 'Heart Space', icon: Icons.image_outlined),
       const _GuardedCoupleTab(title: 'Challenges', icon: Icons.emoji_events_outlined),

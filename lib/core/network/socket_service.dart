@@ -1,0 +1,86 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
+
+import '../constants/api_constants.dart';
+
+class SocketService extends ChangeNotifier {
+  io.Socket? _socket;
+  bool _connected = false;
+
+  bool get isConnected => _connected;
+
+  void Function(String fromUserId, DateTime timestamp, String? signalType)? onAlarmReceived;
+  void Function()? onPartnerOffline;
+
+  void connect(String token) {
+    if (_socket != null) return;
+
+    final url = _resolveUrl();
+
+    _socket = io.io(
+      url,
+      io.OptionBuilder()
+          .setTransports(['websocket'])
+          .setAuth({'token': token})
+          .enableReconnection()
+          .setReconnectionAttempts(5)
+          .setReconnectionDelay(2000)
+          .build(),
+    );
+
+    _socket!.onConnect((_) {
+      _connected = true;
+      notifyListeners();
+    });
+
+    _socket!.onDisconnect((_) {
+      _connected = false;
+      notifyListeners();
+    });
+
+    _socket!.on('alarm:receive', (data) {
+      if (data is Map) {
+        final fromUserId = data['fromUserId'] as String? ?? '';
+        final ts = data['timestamp'] as String?;
+        final timestamp =
+            ts != null ? DateTime.tryParse(ts) ?? DateTime.now() : DateTime.now();
+        final signalType = data['signalType'] as String?;
+        onAlarmReceived?.call(fromUserId, timestamp, signalType);
+      }
+    });
+
+    _socket!.on('alarm:partner_offline', (_) {
+      onPartnerOffline?.call();
+    });
+  }
+
+  void disconnect() {
+    _socket?.dispose();
+    _socket = null;
+    _connected = false;
+    notifyListeners();
+  }
+
+  void sendAlarm(String partnerId, String signalType) {
+    _socket?.emit('alarm:send', {'partnerId': partnerId, 'signalType': signalType});
+  }
+
+  // Android emulator maps host localhost → 10.0.2.2
+  String _resolveUrl() {
+    var url = ApiConstants.baseUrl;
+    if (Platform.isAndroid) {
+      url = url
+          .replaceFirst('http://127.0.0.1', 'http://10.0.2.2')
+          .replaceFirst('http://localhost', 'http://10.0.2.2');
+    }
+    return url;
+  }
+
+  @override
+  void dispose() {
+    disconnect();
+    super.dispose();
+  }
+}

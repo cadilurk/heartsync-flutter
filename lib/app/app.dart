@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/network/api_client.dart';
+import '../core/network/socket_service.dart';
 import '../core/storage/token_storage.dart';
 import '../features/account/providers/account_provider.dart';
 import '../features/account/services/account_service.dart';
+import '../features/alarm/providers/alarm_provider.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/auth/providers/current_user_provider.dart';
 import '../features/auth/services/auth_service.dart';
@@ -66,17 +68,82 @@ class HeartSyncApp extends StatelessWidget {
               previous ??
               PairingProvider(pairingService: pairingService, authProvider: authProvider),
         ),
+        ChangeNotifierProvider(create: (_) => SocketService()),
+        ChangeNotifierProxyProvider2<SocketService, AuthProvider, AlarmProvider>(
+          create: (context) => AlarmProvider(
+            socketService: context.read<SocketService>(),
+            authProvider: context.read<AuthProvider>(),
+          ),
+          update: (_, socketService, authProvider, previous) =>
+              previous ??
+              AlarmProvider(
+                socketService: socketService,
+                authProvider: authProvider,
+              ),
+        ),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
-          return MaterialApp.router(
-            title: 'Heart Sync',
-            debugShowCheckedModeBanner: false,
-            theme: buildAppTheme(),
-            routerConfig: createRouter(authProvider),
+          return _SocketConnector(
+            child: MaterialApp.router(
+              title: 'Heart Sync',
+              debugShowCheckedModeBanner: false,
+              theme: buildAppTheme(),
+              routerConfig: createRouter(authProvider),
+            ),
           );
         },
       ),
     );
   }
+}
+
+// Lắng nghe AuthProvider và kết nối / ngắt socket tương ứng
+class _SocketConnector extends StatefulWidget {
+  final Widget child;
+  const _SocketConnector({required this.child});
+
+  @override
+  State<_SocketConnector> createState() => _SocketConnectorState();
+}
+
+class _SocketConnectorState extends State<_SocketConnector> {
+  AuthProvider? _authProvider;
+  AuthStatus? _lastStatus;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newAuth = context.read<AuthProvider>();
+    if (_authProvider != newAuth) {
+      _authProvider?.removeListener(_onAuthChanged);
+      _authProvider = newAuth;
+      _authProvider!.addListener(_onAuthChanged);
+      _onAuthChanged();
+    }
+  }
+
+  void _onAuthChanged() async {
+    final status = _authProvider!.status;
+    if (status == _lastStatus) return;
+    _lastStatus = status;
+
+    if (status == AuthStatus.authenticated) {
+      final token = await context.read<TokenStorage>().readAccessToken();
+      if (token != null && mounted) {
+        context.read<SocketService>().connect(token);
+      }
+    } else if (status == AuthStatus.unauthenticated) {
+      if (mounted) context.read<SocketService>().disconnect();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authProvider?.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

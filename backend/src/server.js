@@ -1,11 +1,19 @@
 import 'dotenv/config';
+import dns from 'dns';
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import express from 'express';
+import { createServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { MongoClient, ObjectId } from 'mongodb';
+import { Server } from 'socket.io';
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: true, methods: ['GET', 'POST'] },
+});
 const port = Number(process.env.PORT || 5291);
 const mongoUri = process.env.MONGO_URI;
 const jwtSecret = process.env.JWT_SECRET || 'dev-only-change-me';
@@ -356,6 +364,46 @@ app.use((_req, res) => {
   return res.status(error.status).json(error.body);
 });
 
-app.listen(port, () => {
+// ── Socket.io ──────────────────────────────────────────────────────────────
+
+const onlineUsers = new Map(); // userId → socketId
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error('Unauthorized'));
+  try {
+    const payload = jwt.verify(token, jwtSecret);
+    socket.userId = payload.sub;
+    next();
+  } catch {
+    next(new Error('Unauthorized'));
+  }
+});
+
+io.on('connection', (socket) => {
+  onlineUsers.set(socket.userId, socket.id);
+
+  socket.on('alarm:send', ({ partnerId, signalType } = {}) => {
+    if (!partnerId) return;
+    const partnerSocketId = onlineUsers.get(String(partnerId));
+    if (partnerSocketId) {
+      io.to(partnerSocketId).emit('alarm:receive', {
+        fromUserId: socket.userId,
+        timestamp: new Date().toISOString(),
+        signalType: signalType || 'love',
+      });
+    } else {
+      socket.emit('alarm:partner_offline');
+    }
+  });
+
+  socket.on('disconnect', () => {
+    onlineUsers.delete(socket.userId);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+
+httpServer.listen(port, () => {
   console.log(`Heart Sync API listening on http://127.0.0.1:${port}`);
 });
