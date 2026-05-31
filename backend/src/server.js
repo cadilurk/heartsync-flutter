@@ -4,6 +4,8 @@ import cors from 'cors';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { MongoClient, ObjectId } from 'mongodb';
+import createStoreRouter from './storeRouter.js';
+import payOS from './payos.js';
 
 const app = express();
 const port = Number(process.env.PORT || 5291);
@@ -26,6 +28,27 @@ const users = db.collection('users');
 const profiles = db.collection('profiles');
 const relationships = db.collection('coupleRelationships');
 const pairingCodes = db.collection('pairingCodes');
+
+// Diagnostic logger for database and collection presence
+const productCount = await db.collection('products').countDocuments();
+console.log(`[Database Info] Số lượng sản phẩm trong database 'heartsync': ${productCount}`);
+if (productCount === 0) {
+  console.log('[Database Warning] Không có sản phẩm nào trong database "heartsync".');
+  try {
+    const adminDb = client.db().admin();
+    const dbs = await adminDb.listDatabases();
+    console.log('[Database Debug] Các databases hiện có trên Cluster:', dbs.databases.map(d => d.name));
+    for (const d of dbs.databases) {
+      const tempDb = client.db(d.name);
+      const cols = await tempDb.listCollections().toArray();
+      if (cols.some(c => c.name === 'products')) {
+        console.log(`[Database Debug] -> Phát hiện collection "products" đang nằm ở database: "${d.name}"`);
+      }
+    }
+  } catch (err) {
+    console.log('[Database Debug] Không thể quét danh sách database trên Atlas (có thể do thiếu quyền).');
+  }
+}
 
 await users.createIndex({ email: 1 }, { unique: true });
 await pairingCodes.createIndex({ code: 1 }, { unique: true });
@@ -351,11 +374,63 @@ app.delete('/pairing/disconnect', auth, async (req, res) => {
   return res.json(ok(true));
 });
 
+// Cấu hình Webhook nhận thanh toán từ PayOS
+app.post('/payment/payos-webhook', async (req, res) => {
+  const webhookBody = req.body;
+  
+  try {
+    // 1. Kiểm tra tính hợp lệ và giải mã dữ liệu webhook bằng SDK v2
+    const decodedData = await payOS.webhooks.verify(webhookBody);
+    console.log(`[PayOS Webhook] Giải mã webhook thành công:`, decodedData);
+    
+    // 2. Tìm đơn hàng tương ứng trong cơ sở dữ liệu MongoDB
+    const orderCode = decodedData.orderCode;
+    const ordersCollection = db.collection('orders');
+    const cartsCollection = db.collection('carts');
+    
+    const order = await ordersCollection.findOne({ orderCode: orderCode });
+    if (order && order.status === 'PENDING') {
+      const now = new Date();
+      
+      // 3. Cập nhật trạng thái đơn hàng thành PAID (Đã thanh toán) hoặc Đã gửi tặng nếu isGift là true
+      const newStatus = order.isGift ? 'Đã gửi tặng' : 'Đã thanh toán';
+      await ordersCollection.updateOne(
+        { orderCode: orderCode },
+        { $set: { status: newStatus, updatedAt: now } }
+      );
+      
+      // 4. Đồng thời xoá sạch những món đồ đã mua ra khỏi giỏ hàng của user
+      const checkedOutIds = order.items.map(item => item.product.id);
+      const cart = await cartsCollection.findOne({ userId: order.userId });
+      if (cart) {
+        const remainingItems = cart.items.filter(item => !checkedOutIds.includes(item.productId));
+        await cartsCollection.updateOne(
+          { userId: order.userId },
+          { $set: { items: remainingItems, updatedAt: now } }
+        );
+      }
+      
+      console.log(`[PayOS Webhook] Đơn hàng ORD_${orderCode} đã cập nhật thành công trạng thái '${newStatus}'!`);
+    } else {
+      console.log(`[PayOS Webhook] Không tìm thấy đơn hàng PENDING khớp với mã: ${orderCode}`);
+    }
+    
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('[PayOS Webhook Error] Chữ ký không hợp lệ hoặc lỗi DB:', error.message);
+    // Để xác nhận cho PayOS biết webhook đã nhận được (tránh họ gửi đi gửi lại nếu do lỗi ký mock),
+    // ta vẫn trả về 200 nhưng ghi nhận log
+    return res.status(200).json({ success: false, message: error.message });
+  }
+});
+
+app.use(createStoreRouter(db, auth, ok, fail));
+
 app.use((_req, res) => {
   const error = fail('SERVER_ERROR', 404);
   return res.status(error.status).json(error.body);
 });
 
-app.listen(port, () => {
-  console.log(`Heart Sync API listening on http://127.0.0.1:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Heart Sync API listening on http://0.0.0.0:${port}`);
 });
