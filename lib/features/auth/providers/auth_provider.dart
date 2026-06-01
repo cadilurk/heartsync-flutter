@@ -2,7 +2,9 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/notifications/fcm_service.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../account/services/account_service.dart';
 import '../models/current_user_session.dart';
@@ -16,6 +18,7 @@ class AuthProvider extends ChangeNotifier {
   final AuthService _authService;
   final AccountService _accountService;
   final TokenStorage _tokenStorage;
+  final ApiClient _apiClient;
 
   AuthStatus status = AuthStatus.unknown;
   CurrentUserSession session = CurrentUserSession.empty;
@@ -25,9 +28,11 @@ class AuthProvider extends ChangeNotifier {
     required AuthService authService,
     required AccountService accountService,
     required TokenStorage tokenStorage,
+    required ApiClient apiClient,
   })  : _authService = authService,
         _accountService = accountService,
-        _tokenStorage = tokenStorage;
+        _tokenStorage = tokenStorage,
+        _apiClient = apiClient;
 
   bool get isAuthenticated => session.isAuthenticated;
   bool get isPaired => session.isPaired;
@@ -75,6 +80,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    if (!kIsWeb) {
+      await FcmService().unregisterToken();
+    }
     try {
       await _authService.logout();
     } catch (_) {
@@ -95,6 +103,11 @@ class AuthProvider extends ChangeNotifier {
       session = await _accountService.me();
       status = session.isAuthenticated ? AuthStatus.authenticated : AuthStatus.unauthenticated;
       errorMessage = null;
+
+      // Initialize FCM token registration if authenticated
+      if (session.isAuthenticated && !kIsWeb) {
+        FcmService().initialize(_apiClient);
+      }
     } on ApiException catch (error) {
       await _tokenStorage.clear();
       session = CurrentUserSession.empty;

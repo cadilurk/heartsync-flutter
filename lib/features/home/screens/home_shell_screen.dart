@@ -7,6 +7,8 @@ import '../../account/screens/account_screen.dart';
 import '../../alarm/screens/alarm_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 
+import '../../alarm/providers/alarm_provider.dart';
+
 class HomeShellScreen extends StatefulWidget {
   const HomeShellScreen({super.key});
 
@@ -14,20 +16,39 @@ class HomeShellScreen extends StatefulWidget {
   State<HomeShellScreen> createState() => _HomeShellScreenState();
 }
 
-class _HomeShellScreenState extends State<HomeShellScreen> {
+class _HomeShellScreenState extends State<HomeShellScreen> with WidgetsBindingObserver {
   int _index = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) OverlayManager().init(context);
+      if (mounted) {
+        OverlayManager().init(context);
+        context.read<AlarmProvider>().fetchUnreadSignals();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      context.read<AlarmProvider>().fetchUnreadSignals();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isPaired = context.watch<AuthProvider>().isPaired;
+    final unreadCount = context.watch<AlarmProvider>().unreadCount;
+
     final pages = [
       const _HomeTab(),
       const AlarmScreen(),
@@ -53,14 +74,21 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
           }
           setState(() => _index = index);
         },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.favorite_border), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.notifications_none), label: 'Alarm'),
-          NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
-          NavigationDestination(icon: Icon(Icons.image_outlined), label: 'Space'),
-          NavigationDestination(icon: Icon(Icons.emoji_events_outlined), label: 'Challenges'),
-          NavigationDestination(icon: Icon(Icons.inventory_2_outlined), label: 'Store'),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: 'Account'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.favorite_border), label: 'Home'),
+          NavigationDestination(
+            icon: Badge(
+              label: Text('$unreadCount'),
+              isLabelVisible: unreadCount > 0,
+              child: const Icon(Icons.notifications_none),
+            ),
+            label: 'Alarm',
+          ),
+          const NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
+          const NavigationDestination(icon: Icon(Icons.image_outlined), label: 'Space'),
+          const NavigationDestination(icon: Icon(Icons.emoji_events_outlined), label: 'Challenges'),
+          const NavigationDestination(icon: Icon(Icons.inventory_2_outlined), label: 'Store'),
+          const NavigationDestination(icon: Icon(Icons.person_outline), label: 'Account'),
         ],
       ),
     );

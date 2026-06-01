@@ -19,6 +19,7 @@ class OverlayManager {
     required String partnerInitial,
     required String signalType,
     required VoidCallback onSendBack,
+    VoidCallback? onDismissCallback,
   }) {
     if (_entry != null || _context == null) return;
 
@@ -28,7 +29,10 @@ class OverlayManager {
         partnerInitial: partnerInitial,
         signalType: signalType,
         onSendBack: onSendBack,
-        onDismiss: dismiss,
+        onDismiss: () {
+          dismiss();
+          onDismissCallback?.call();
+        },
       ),
     );
 

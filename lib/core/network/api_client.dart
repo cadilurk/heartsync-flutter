@@ -46,6 +46,14 @@ class ApiClient {
     return _send<T>('PUT', path, body, parseData);
   }
 
+  Future<T> patch<T>(
+    String path,
+    Map<String, dynamic>? body,
+    T Function(Object? json) parseData,
+  ) {
+    return _send<T>('PATCH', path, body, parseData);
+  }
+
   Future<T> delete<T>(
     String path,
     Map<String, dynamic>? body,
@@ -99,6 +107,9 @@ class ApiClient {
         break;
       case 'PUT':
         response = await _httpClient.put(uri, headers: headers, body: jsonEncode(body ?? {}));
+        break;
+      case 'PATCH':
+        response = await _httpClient.patch(uri, headers: headers, body: jsonEncode(body ?? {}));
         break;
       case 'DELETE':
         response = await _httpClient.delete(uri, headers: headers, body: jsonEncode(body ?? {}));

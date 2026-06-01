@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 class AlarmOverlay extends StatefulWidget {
@@ -24,30 +23,34 @@ class AlarmOverlay extends StatefulWidget {
 
 class _AlarmOverlayState extends State<AlarmOverlay>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _emojiCtrl;
-  late final Animation<double> _emojiScale;
+  late final AnimationController _scaleCtrl;
+  late final Animation<double> _scaleAnim;
   Timer? _timer;
-  int _countdown = 4;
+  int _countdown = 5;
 
   @override
   void initState() {
     super.initState();
 
-    _emojiCtrl = AnimationController(
+    _scaleCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
-    )..forward();
-
-    _emojiScale = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _emojiCtrl, curve: Curves.elasticOut),
+      duration: const Duration(milliseconds: 500),
     );
+
+    _scaleAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _scaleCtrl, curve: Curves.elasticOut),
+    );
+
+    _scaleCtrl.forward();
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-      setState(() => _countdown--);
+      setState(() {
+        _countdown--;
+      });
       if (_countdown <= 0) {
         timer.cancel();
         widget.onDismiss();
@@ -58,14 +61,26 @@ class _AlarmOverlayState extends State<AlarmOverlay>
   @override
   void dispose() {
     _timer?.cancel();
-    _emojiCtrl.dispose();
+    _scaleCtrl.dispose();
     super.dispose();
   }
 
-  String get _emoji => switch (widget.signalType) {
-        'miss' => '🥺',
-        'care' => '🤗',
-        _ => '💕',
+  Color get _pastelBg => switch (widget.signalType) {
+        'miss' => const Color(0xFFF3E8FF),
+        'care' => const Color(0xFFFFF7ED),
+        _ => const Color(0xFFFFF0F5),
+      };
+
+  Color get _signalColor => switch (widget.signalType) {
+        'miss' => const Color(0xFFC084FC),
+        'care' => const Color(0xFFFB923C),
+        _ => const Color(0xFFEC4899),
+      };
+
+  String get _label => switch (widget.signalType) {
+        'miss' => 'Nhớ lắm',
+        'care' => 'Quan tâm',
+        _ => 'Yêu lắm',
       };
 
   String get _message => switch (widget.signalType) {
@@ -74,98 +89,185 @@ class _AlarmOverlayState extends State<AlarmOverlay>
         _ => 'yêu em lắm...',
       };
 
+  void _handleDismiss() {
+    _timer?.cancel();
+    widget.onDismiss();
+  }
+
+  void _handleSendBack() {
+    _timer?.cancel();
+    widget.onSendBack();
+    widget.onDismiss();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFFFF0F5).withValues(alpha: 0.96),
+      color: const Color(0xFFFFF0F5).withValues(alpha: 0.95),
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // A. Emoji animated
-              ScaleTransition(
-                scale: _emojiScale,
-                child: Text(
-                  _emoji,
-                  style: const TextStyle(fontSize: 72),
+        child: Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          shadowColor: const Color(0xFFEC4899).withValues(alpha: 0.3),
+          child: Container(
+            width: 280,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFEC4899).withValues(alpha: 0.3),
+                  blurRadius: 40,
+                  offset: const Offset(0, 8),
                 ),
-              ),
-
-              // B. Partner name
-              const SizedBox(height: 16),
-              Text(
-                widget.partnerName,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1a1a2e),
-                ),
-              ),
-
-              // C. Message
-              const SizedBox(height: 4),
-              Text(
-                _message,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: Color(0xFF9CA3AF),
-                ),
-              ),
-
-              // D. Spacer
-              const SizedBox(height: 24),
-
-              // E. Action buttons
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      widget.onSendBack();
-                      widget.onDismiss();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEC4899),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      elevation: 0,
+              ],
+            ),
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Avatar
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFC084FC), Color(0xFFEC4899)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    child: const Text('Gửi lại 💕',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton(
-                    onPressed: widget.onDismiss,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFBE185D),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      side: const BorderSide(color: Color(0xFFFBCFE8)),
+                  alignment: Alignment.center,
+                  child: Text(
+                    widget.partnerInitial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: const Text('Đóng'),
                   ),
-                ],
-              ),
-
-              // F. Countdown
-              const SizedBox(height: 12),
-              Text(
-                'Tự đóng sau ${_countdown}s...',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF9CA3AF),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+
+                // Name
+                Text(
+                  widget.partnerName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1a1a2e),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+
+                // Subtitle
+                const Text(
+                  'vừa gửi cho bạn',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+
+                // Icon Container
+                Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _pastelBg,
+                  ),
+                  alignment: Alignment.center,
+                  child: ScaleTransition(
+                    scale: _scaleAnim,
+                    child: Icon(
+                      Icons.favorite,
+                      color: _signalColor,
+                      size: 48,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Label
+                Text(
+                  _label,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _signalColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+
+                // Message
+                Text(
+                  _message,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
+
+                // Buttons Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton(
+                      onPressed: _handleDismiss,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFBE185D),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        side: const BorderSide(color: Color(0xFFFBCFE8)),
+                      ),
+                      child: const Text('Đóng'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _handleSendBack,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEC4899),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        '💕 Gửi lại',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Countdown Text
+                Text(
+                  'Tự đóng sau ${_countdown}s',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

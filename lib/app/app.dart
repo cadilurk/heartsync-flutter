@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../core/network/socket_service.dart';
 import '../core/storage/token_storage.dart';
@@ -12,6 +13,7 @@ import '../features/auth/providers/current_user_provider.dart';
 import '../features/auth/services/auth_service.dart';
 import '../features/pairing/providers/pairing_provider.dart';
 import '../features/pairing/services/pairing_service.dart';
+import '../features/alarm/services/signal_service.dart';
 import 'router.dart';
 import 'theme.dart';
 
@@ -24,7 +26,10 @@ class HeartSyncApp extends StatelessWidget {
       providers: [
         Provider(create: (_) => TokenStorage()),
         ProxyProvider<TokenStorage, ApiClient>(
-          update: (_, storage, previous) => previous ?? ApiClient(tokenStorage: storage),
+          update: (_, storage, previous) => previous ?? ApiClient(
+            tokenStorage: storage,
+            baseUrl: ApiConstants.resolveBaseUrl(),
+          ),
         ),
         ProxyProvider<ApiClient, AuthService>(
           update: (_, apiClient, previous) => previous ?? AuthService(apiClient),
@@ -35,18 +40,23 @@ class HeartSyncApp extends StatelessWidget {
         ProxyProvider<ApiClient, PairingService>(
           update: (_, apiClient, previous) => previous ?? PairingService(apiClient),
         ),
+        ProxyProvider<ApiClient, SignalService>(
+          update: (_, apiClient, previous) => previous ?? SignalService(apiClient),
+        ),
         ChangeNotifierProxyProvider3<AuthService, AccountService, TokenStorage, AuthProvider>(
           create: (context) => AuthProvider(
             authService: context.read<AuthService>(),
             accountService: context.read<AccountService>(),
             tokenStorage: context.read<TokenStorage>(),
+            apiClient: context.read<ApiClient>(),
           ),
-          update: (_, authService, accountService, tokenStorage, previous) =>
+          update: (context, authService, accountService, tokenStorage, previous) =>
               previous ??
               AuthProvider(
                 authService: authService,
                 accountService: accountService,
                 tokenStorage: tokenStorage,
+                apiClient: context.read<ApiClient>(),
               ),
         ),
         ChangeNotifierProvider(create: (_) => CurrentUserProvider()),
@@ -69,16 +79,18 @@ class HeartSyncApp extends StatelessWidget {
               PairingProvider(pairingService: pairingService, authProvider: authProvider),
         ),
         ChangeNotifierProvider(create: (_) => SocketService()),
-        ChangeNotifierProxyProvider2<SocketService, AuthProvider, AlarmProvider>(
+        ChangeNotifierProxyProvider3<SocketService, AuthProvider, SignalService, AlarmProvider>(
           create: (context) => AlarmProvider(
             socketService: context.read<SocketService>(),
             authProvider: context.read<AuthProvider>(),
+            signalService: context.read<SignalService>(),
           ),
-          update: (_, socketService, authProvider, previous) =>
+          update: (_, socketService, authProvider, signalService, previous) =>
               previous ??
               AlarmProvider(
                 socketService: socketService,
                 authProvider: authProvider,
+                signalService: signalService,
               ),
         ),
       ],

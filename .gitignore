@@ -36,6 +36,7 @@ migrate_working_dir/
 # Local backend secrets
 backend/.env
 backend/node_modules/
+backend/firebase-service-account.json
 
 # Symbolication related
 app.*.symbols

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -11,7 +9,7 @@ class SocketService extends ChangeNotifier {
 
   bool get isConnected => _connected;
 
-  void Function(String fromUserId, DateTime timestamp, String? signalType)? onAlarmReceived;
+  void Function(String? signalId, String fromUserId, DateTime timestamp, String? signalType)? onAlarmReceived;
   void Function()? onPartnerOffline;
 
   void connect(String token) {
@@ -42,12 +40,13 @@ class SocketService extends ChangeNotifier {
 
     _socket!.on('alarm:receive', (data) {
       if (data is Map) {
+        final signalId = data['signalId'] as String?;
         final fromUserId = data['fromUserId'] as String? ?? '';
         final ts = data['timestamp'] as String?;
         final timestamp =
             ts != null ? DateTime.tryParse(ts) ?? DateTime.now() : DateTime.now();
         final signalType = data['signalType'] as String?;
-        onAlarmReceived?.call(fromUserId, timestamp, signalType);
+        onAlarmReceived?.call(signalId, fromUserId, timestamp, signalType);
       }
     });
 
@@ -67,16 +66,7 @@ class SocketService extends ChangeNotifier {
     _socket?.emit('alarm:send', {'partnerId': partnerId, 'signalType': signalType});
   }
 
-  // Android emulator maps host localhost → 10.0.2.2
-  String _resolveUrl() {
-    var url = ApiConstants.baseUrl;
-    if (Platform.isAndroid) {
-      url = url
-          .replaceFirst('http://127.0.0.1', 'http://10.0.2.2')
-          .replaceFirst('http://localhost', 'http://10.0.2.2');
-    }
-    return url;
-  }
+  String _resolveUrl() => ApiConstants.resolveBaseUrl();
 
   @override
   void dispose() {
