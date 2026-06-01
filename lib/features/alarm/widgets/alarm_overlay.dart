@@ -224,35 +224,38 @@ class _AlarmOverlayState extends State<AlarmOverlay>
 
                 // Buttons Row
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    OutlinedButton(
-                      onPressed: _handleDismiss,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFBE185D),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _handleDismiss,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFBE185D),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          side: const BorderSide(color: Color(0xFFFBCFE8)),
                         ),
-                        side: const BorderSide(color: Color(0xFFFBCFE8)),
+                        child: const Text('Đóng'),
                       ),
-                      child: const Text('Đóng'),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: _handleSendBack,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEC4899),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _handleSendBack,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEC4899),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          elevation: 0,
                         ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        '💕 Gửi lại',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        child: const Text(
+                          '💕 Gửi lại',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ],
