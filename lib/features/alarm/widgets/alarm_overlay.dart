@@ -26,7 +26,7 @@ class _AlarmOverlayState extends State<AlarmOverlay>
   late final AnimationController _scaleCtrl;
   late final Animation<double> _scaleAnim;
   Timer? _timer;
-  int _countdown = 5;
+  int _countdown = 30;
 
   @override
   void initState() {

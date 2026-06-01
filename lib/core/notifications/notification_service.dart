@@ -37,25 +37,36 @@ class NotificationService {
     required String partnerName,
     required String signalType,
   }) async {
-    final (emoji, body) = switch (signalType) {
-      'miss' => ('🥺', 'nhớ em lắm...'),
-      'care' => ('🤗', 'đang nghĩ đến em'),
-      _ => ('💕', 'yêu em lắm...'),
+    final (emoji, title, body) = switch (signalType) {
+      'miss' => ('🥺', '$partnerName nhớ bạn lắm 🥺', 'nhớ em lắm...'),
+      'care' => ('🤗', '$partnerName đang nghĩ đến bạn 🤗', 'đang nghĩ đến em'),
+      _ => ('💕', '$partnerName yêu bạn lắm 💕', 'yêu em lắm...'),
     };
 
     final androidDetails = AndroidNotificationDetails(
       'heart_alarm',
       'Heart Alarm',
-      importance: Importance.high,
+      channelDescription: 'Thông báo tín hiệu từ người yêu',
+      importance: Importance.max,
       priority: Priority.high,
       color: const Color(0xFFEC4899),
-      styleInformation: BigTextStyleInformation(body),
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+        summaryText: 'HeartSync',
+      ),
       vibrationPattern: Int64List.fromList([0, 500, 200, 500]),
+      playSound: true,
+      enableLights: true,
+      ledColor: const Color(0xFFEC4899),
+      ledOnMs: 500,
+      ledOffMs: 500,
+      ticker: '$partnerName $emoji',
     );
 
     await _plugin.show(
       0,
-      '$partnerName gửi signal $emoji',
+      title,
       body,
       NotificationDetails(android: androidDetails),
     );
