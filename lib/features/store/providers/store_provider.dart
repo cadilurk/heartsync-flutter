@@ -88,17 +88,13 @@ class StoreProvider extends ChangeNotifier {
     if (!ApiConstants.useMockApi) {
       try {
         final updated = await _storeService.addToCartApi(product.id, quantity);
-        cartItems = updated;
-        notifyListeners();
-      } catch (e) {
-        // Rollback nếu lỗi mạng
-        if (index >= 0) {
-          cartItems[index] = cartItems[index].copyWith(quantity: cartItems[index].quantity - quantity);
-        } else {
-          cartItems.removeLast();
+        if (updated.isNotEmpty) {
+          cartItems = updated;
+          notifyListeners();
         }
-        notifyListeners();
-        rethrow;
+        // Nếu API trả rỗng list (backend chưa có /cart) → giữ local cart
+      } catch (_) {
+        // Backend offline → giữ local cart, không rollback
       }
     }
   }
@@ -113,11 +109,9 @@ class StoreProvider extends ChangeNotifier {
 
       if (!ApiConstants.useMockApi) {
         try {
-          cartItems = await _storeService.updateCartQuantityApi(productId, 0);
-          notifyListeners();
-        } catch (e) {
-          await loadProducts(); // Rollback bằng cách fetch lại
-          rethrow;
+          await _storeService.updateCartQuantityApi(productId, 0);
+        } catch (_) {
+          // Backend offline → giữ local state
         }
       }
       return;
@@ -128,11 +122,9 @@ class StoreProvider extends ChangeNotifier {
 
     if (!ApiConstants.useMockApi) {
       try {
-        cartItems = await _storeService.updateCartQuantityApi(productId, quantity);
-        notifyListeners();
-      } catch (e) {
-        await loadProducts(); // Rollback
-        rethrow;
+        await _storeService.updateCartQuantityApi(productId, quantity);
+      } catch (_) {
+        // Backend offline → giữ local state
       }
     }
   }
@@ -140,33 +132,27 @@ class StoreProvider extends ChangeNotifier {
   Future<void> removeFromCart(String productId) async {
     final index = cartItems.indexWhere((item) => item.product.id == productId);
     if (index < 0) return;
-    final item = cartItems.removeAt(index);
+    cartItems.removeAt(index);
     notifyListeners();
 
     if (!ApiConstants.useMockApi) {
       try {
-        cartItems = await _storeService.updateCartQuantityApi(productId, 0);
-        notifyListeners();
-      } catch (e) {
-        cartItems.insert(index, item);
-        notifyListeners();
-        rethrow;
+        await _storeService.updateCartQuantityApi(productId, 0);
+      } catch (_) {
+        // Backend offline → giữ local state
       }
     }
   }
 
   Future<void> clearCart() async {
-    final oldItems = List<CartItem>.from(cartItems);
     cartItems.clear();
     notifyListeners();
 
     if (!ApiConstants.useMockApi) {
       try {
         await _storeService.clearCartApi();
-      } catch (e) {
-        cartItems = oldItems;
-        notifyListeners();
-        rethrow;
+      } catch (_) {
+        // Backend offline → giữ local state (cart đã xóa local rồi)
       }
     }
   }
