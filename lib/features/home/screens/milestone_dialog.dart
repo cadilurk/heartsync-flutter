@@ -352,31 +352,28 @@ class _MilestoneDialogState extends State<MilestoneDialog> {
 
               // Completed Tickbox (only for challenge type)
               if (_selectedType == 'challenge') ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50.withValues(alpha: 0.4),
+                CheckboxListTile(
+                  tileColor: Colors.green.shade50.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.shade100, width: 1),
+                    side: BorderSide(color: Colors.green.shade100),
                   ),
-                  child: CheckboxListTile(
-                    title: const Text(
-                      'Đã hoàn thành thử thách này',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.green,
-                      ),
+                  title: const Text(
+                    'Đã hoàn thành thử thách này',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.green,
                     ),
-                    value: _isCompleted,
-                    activeColor: Colors.green,
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (val) {
-                      setState(() {
-                        _isCompleted = val ?? false;
-                      });
-                    },
                   ),
+                  value: _isCompleted,
+                  activeColor: Colors.green,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                  onChanged: (val) {
+                    setState(() {
+                      _isCompleted = val ?? false;
+                    });
+                  },
                 ),
                 const SizedBox(height: 20),
               ],
