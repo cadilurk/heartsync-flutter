@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme.dart';
 import '../../../core/network/api_exception.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../pairing/providers/pairing_provider.dart';
@@ -43,6 +44,17 @@ class AccountScreen extends StatelessWidget {
             onPressed: () => context.go('/profile-setup'),
             icon: const Icon(Icons.edit),
             label: const Text('Sửa hồ sơ'),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => context.push('/order-history'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.active,
+              side: const BorderSide(color: AppColors.active),
+            ),
+            icon: const Icon(Icons.history),
+            label: const Text('Lịch sử mua quà'),
           ),
           if (session.isPaired) ...[
             const SizedBox(height: 12),

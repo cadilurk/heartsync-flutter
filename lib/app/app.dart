@@ -16,6 +16,8 @@ import '../features/home/services/milestone_service.dart';
 import '../features/pairing/providers/pairing_provider.dart';
 import '../features/pairing/services/pairing_service.dart';
 import '../features/alarm/services/signal_service.dart';
+import '../features/store/providers/store_provider.dart';
+import '../features/store/services/store_service.dart';
 import 'router.dart';
 import 'theme.dart';
 
@@ -47,6 +49,9 @@ class HeartSyncApp extends StatelessWidget {
         ),
         ProxyProvider<ApiClient, MilestoneService>(
           update: (_, apiClient, previous) => previous ?? MilestoneService(apiClient),
+        ),
+        ProxyProvider<ApiClient, StoreService>(
+          update: (_, apiClient, previous) => previous ?? StoreService(apiClient),
         ),
         ChangeNotifierProxyProvider3<AuthService, AccountService, TokenStorage, AuthProvider>(
           create: (context) => AuthProvider(
@@ -82,6 +87,11 @@ class HeartSyncApp extends StatelessWidget {
           update: (_, pairingService, authProvider, previous) =>
               previous ??
               PairingProvider(pairingService: pairingService, authProvider: authProvider),
+        ),
+        ChangeNotifierProxyProvider<StoreService, StoreProvider>(
+          create: (context) => StoreProvider(storeService: context.read<StoreService>()),
+          update: (_, storeService, previous) =>
+              previous ?? StoreProvider(storeService: storeService),
         ),
         ChangeNotifierProvider(create: (_) => SocketService()),
         ChangeNotifierProxyProvider3<SocketService, AuthProvider, SignalService, AlarmProvider>(

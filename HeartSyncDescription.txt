@@ -1,0 +1,49 @@
+HEART SYNC
+Start-up idea: Heart Sync app
+Introduction: 
+Trong đời sống hiện đại, các mối quan hệ tình cảm đang chịu tác động mạnh từ nhịp sống nhanh và sự phụ thuộc vào công nghệ số. Dù việc liên lạc trở nên dễ dàng hơn, nhiều cặp đôi vẫn gặp khó khăn trong việc duy trì cảm xúc, ghi nhớ những cột mốc quan trọng và cảm nhận sự gắn kết một cách rõ ràng, đặc biệt khi khoảng cách địa lý xuất hiện. Tình yêu vì thế dễ bị chi phối bởi sự phân tán, thói quen giao tiếp máy móc và thiếu những trải nghiệm chung mang ý nghĩa.
+Bên cạnh đó, các nền tảng mạng xã hội phổ biến hiện nay chủ yếu hướng đến việc chia sẻ công khai, chưa thực sự đáp ứng nhu cầu về một không gian riêng tư dành cho hai người. Điều này đặt ra nhu cầu về một nền tảng chuyên biệt, nơi tình yêu không chỉ được ghi nhớ, mà còn được cảm nhận, duy trì và nuôi dưỡng theo cách trực quan và gần gũi hơn với đời sống của các cặp đôi trẻ.
+Functions: 
+Heart Alarm: Chuông tình yêu cho phép người dùng gửi tín hiệu yêu thương đến người yêu bằng cách nhấn vào app và lắc điện thoại. Khi hai người ở xa nhau, người nhận sẽ lập tức nhận được rung hoặc thông báo thể hiện cảm xúc như nhớ nhung, quan tâm hoặc yêu thương. Khi hai người ở gần nhau hoặc cùng một khu vực, ứng dụng sẽ tự động kích hoạt rung đồng thời trên cả hai thiết bị theo một tần số riêng, tạo cảm giác kết nối và đồng bộ giữa hai người.
+
+Heart Counter: Tự động hiển thị số ngày hai người đã đồng hành cùng nhau kể từ thời điểm bắt đầu mối quan hệ, đồng thời cho phép lưu và nhắc các cột mốc quan trọng như ngày kỷ niệm, lần gặp đầu tiên hoặc những sự kiện đáng nhớ. Bộ đếm được cập nhật tự động theo thời gian thực, giúp các cặp đôi dễ dàng theo dõi hành trình yêu và trân trọng những dấu mốc chung.
+
+Heart Map: Hiển thị trạng thái khoảng cách giữa hai người trên bản đồ thông qua các điểm đại diện được mã hóa bằng màu sắc. Màu sắc của điểm sẽ thay đổi theo khoảng cách địa lý giữa hai người: đỏ khi ở xa, vàng khi ở gần và xanh khi ở cùng khu vực hoặc rất gần nhau. Tính năng giúp người dùng nhanh chóng nhận biết trạng thái gần hay xa của mối quan hệ một cách trực quan và cảm xúc.
+
+Heart Space (Vấn đề bảo mật, dung lượng): Không gian riêng tư dành riêng cho hai người để lưu giữ kỷ niệm và cảm xúc chung. Người dùng có thể viết câu chuyện tình yêu, lưu hình ảnh, ghi chú cảm xúc và đánh dấu các khoảnh khắc đáng nhớ, tất cả được bảo mật và chỉ hai người có quyền truy cập. Tính năng giúp tập trung và hệ thống hóa kỷ niệm tình yêu trong một không gian cá nhân hóa, dễ dàng nhìn lại và cập nhật theo thời gian.
+
+Heart Challenges: Cho phép các cặp đôi cùng tham gia các thử thách trên ứng dụng như gọi video, check-in chung, đặt đồ ăn hoặc hoàn thành các hoạt động tương tác khác. Mỗi thử thách hoàn thành sẽ đóng góp vào việc nuôi dưỡng một thú cưng chung trong ứng dụng, tạo động lực để hai người duy trì tương tác đều đặn. Nếu cả hai không thực hiện bất kỳ challenge nào trong vòng 7 ngày, thì pet sẽ bị đóng băng/ phải nuôi lại từ đầu. Tính năng khuyến khích các cặp đôi gắn kết thông qua hoạt động chung và  biến việc chăm sóc mối quan hệ thành một trải nghiệm mang tính vui chơi và đồng hành.
+
+Heart Store: Cửa hàng quà tặng tích hợp trong app, tập trung gợi ý quà cho các cặp đôi theo dịp và trạng thái mối quan hệ như Valentine, 8/3, sinh nhật hay kỷ niệm. Ứng dụng đóng vai trò kết nối người dùng với các shop, nhãn hàng phù hợp và thu hoa hồng từ mỗi giao dịch, không trực tiếp xử lý vận chuyển.
+
+Premium: 
+
+
+
+Market pain points:
+
+        Trong nhịp sống số hiện nay, các cặp đôi gặp khó khăn trong việc lưu giữ và nuôi dưỡng tình yêu một cách bền vững. Kỷ niệm tình cảm thường bị phân tán trên nhiều nền tảng, khác nhau như mạng xã hội, ứng dụng nhắn tin hay bộ nhớ cá nhân, khiến chúng dễ bị thất lạc, thiếu tính hệ thống và không còn giữ được giá trị cảm xúc ban đầu, thiếu một không gian riêng tư và có hệ thống để cùng nhau nhìn lại hành trình yêu. Đối với các cặp đôi yêu xa, khoảng cách địa lý càng làm suy giảm cảm giác kết nối và hiện diện, trong khi các công cụ giao tiếp hiện tại chưa đủ khả năng duy trì cảm xúc lâu dài. Bên cạnh đó, việc quên các cột mốc quan trọng và khó khăn trong việc chọn quà tặng mang tính cá nhân hóa khiến tình yêu dễ trở nên máy móc và nhạt dần theo thời gian.
+
+Solutions:
+Từ những vấn đề trên, nhóm đề xuất một ứng dụng dành riêng cho các cặp đôi, tập trung vào việc trực quan hóa tình yêu. Mỗi cặp đôi khi ghép đôi thành công trên ứng dụng sẽ có một dấu chấm đại diện trên bản đồ Việt Nam, với màu sắc thay đổi theo trạng thái gần hoặc xa của hai người, giúp khoảng cách địa lý được cảm nhận một cách trực quan và cảm xúc hơn.
+Ứng dụng không hướng đến việc chia sẻ hay khoe khoang trên mạng xã hội, mà tạo ra một không gian riêng tư để hai người kết nối, tương tác và lưu giữ hành trình tình yêu. Thông qua các tính năng như Chuông tình yêu, Đếm ngày yêu, Heart Space và Heart Challenges, app giúp các cặp đôi, dù ở xa hay gần nhau, luôn cảm nhận được sự hiện diện của đối phương và chủ động nuôi dưỡng mối quan hệ mỗi ngày.
+Market research & segmentation:
+Theo nghiên cứu của Beck Meyer et al. (2021) trong tờ National libraby of medicine cho thấy 34,2% sinh viên đang có mối quan hệ tình cảm là yêu xa, khẳng định đây là một dạng quan hệ phổ biến trong môi trường đại học. Đáng chú ý, mức độ hạnh phúc, cam kết và xung đột không khác biệt đáng kể giữa các cặp yêu xa và yêu gần, cho thấy chất lượng mối quan hệ không phụ thuộc vào khoảng cách địa lý mà phụ thuộc vào cách duy trì và tương tác. Kết quả này chỉ ra nhu cầu thực tế về các công cụ hỗ trợ chuyên biệt cho yêu xa, giúp duy trì cảm giác kết nối và hiện diện lâu dài. 
+Dựa trên nghiên cứu, thị trường mục tiêu của Heart Sync tập trung vào các cặp đôi trẻ, đặc biệt là sinh viên và người trẻ đang trong mối quan hệ yêu xa hoặc thường xuyên xa cách vì học tập và công việc. Phân khúc này có nhu cầu cao về các giải pháp số giúp trực quan hóa khoảng cách, nhắc nhở tương tác và lưu giữ hành trình tình yêu trong một không gian riêng tư. Đồng thời, Heart Sync cũng mở rộng sang các cặp yêu gần có nhu cầu hệ thống hóa kỷ niệm và nuôi dưỡng mối quan hệ bền vững.
+Distribution channels:
+
+
+
+Technology Challenges
+Tối ưu hóa kết nối thời gian thực (Real-time Low Latency) nếu nhiều lượt lắc thì dẫn đến nghẽn server => sập sever => bỏ function này hoặc đầu tư lớn
+Thách thức: Tính năng Heart Alarm (rung máy khi lắc) yêu cầu độ trễ cực thấp. Nếu dữ liệu truyền đi chậm, trải nghiệm "đồng bộ cảm xúc" sẽ bị phá vỡ.
+Giải pháp: Sử dụng công nghệ WebSockets hoặc SignalR để duy trì kết nối song công (full-duplex) liên tục giữa hai thiết bị, giúp phản hồi ngay lập tức trong mili giây.
+Quản lý vị trí nền và Tiết kiệm năng lượng (Background Geolocation)
+Thách thức: Heart Map cần cập nhật vị trí để thay đổi màu sắc trạng thái. Tuy nhiên, việc chạy GPS liên tục dưới nền sẽ gây nóng máy và tiêu hao pin nghiêm trọng, dẫn đến việc người dùng gỡ ứng dụng.
+Giải pháp: Áp dụng thuật toán Adaptive Location Updates (chỉ cập nhật khi người dùng di chuyển đáng kể - Significant Change) và tích hợp các thư viện tối ưu như React Native Background Geolocation.
+ Bảo mật và Mã hóa dữ liệu riêng tư (Data Privacy & Encryption)
+Thách thức: Heart Space lưu trữ những hình ảnh và nhật ký nhạy cảm của cặp đôi. Việc rò rỉ dữ liệu này là một rủi ro lớn về uy tín của hệ thống.
+Giải pháp: Triển khai mã hóa đầu cuối (End-to-End Encryption - E2EE) cho các nội dung trong không gian riêng tư. Dữ liệu sẽ được mã hóa tại máy người gửi và chỉ được giải mã tại máy người nhận, ngay cả quản trị viên hệ thống cũng không thể đọc được.
+Kiến trúc hệ thống và Khả năng mở rộng (Scalability)
+Thách thức: Khi số lượng cặp đôi tăng lên hàng chục ngàn, hệ thống phải xử lý hàng triệu tín hiệu rung và cập nhật vị trí cùng lúc.
+Giải pháp: Thiết kế hệ thống theo kiến trúc Microservices và sử dụng các dịch vụ đám mây (Cloud) như AWS hoặc Azure để tự động mở rộng tài nguyên (Auto-scaling) khi lưu lượng truy cập tăng đột biến.

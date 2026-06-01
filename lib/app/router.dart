@@ -11,6 +11,13 @@ import '../features/pairing/screens/enter_pairing_code_screen.dart';
 import '../features/pairing/screens/pairing_code_screen.dart';
 import '../features/pairing/screens/pairing_hub_screen.dart';
 import '../features/pairing/screens/pairing_success_screen.dart';
+import '../features/store/models/cart_item.dart';
+import '../features/store/models/product.dart';
+import '../features/store/screens/cart_screen.dart';
+import '../features/store/screens/checkout/checkout_screen.dart';
+
+import '../features/store/screens/order_history_screen.dart';
+import '../features/store/screens/product_detail_screen.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
@@ -57,6 +64,22 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(path: '/pairing/success', builder: (_, _) => const PairingSuccessScreen()),
       GoRoute(path: '/home', builder: (_, _) => const HomeShellScreen()),
       GoRoute(path: '/account', builder: (_, _) => const AccountScreen()),
+      GoRoute(path: '/cart', builder: (_, _) => const CartScreen()),
+      GoRoute(path: '/order-history', builder: (_, _) => const OrderHistoryScreen()),
+      GoRoute(
+        path: '/checkout',
+        builder: (context, state) {
+          final items = state.extra as List<CartItem>;
+          return CheckoutScreen(items: items);
+        },
+      ),
+      GoRoute(
+        path: '/product-detail',
+        builder: (context, state) {
+          final product = state.extra as Product;
+          return ProductDetailScreen(product: product);
+        },
+      ),
     ],
   );
 }
