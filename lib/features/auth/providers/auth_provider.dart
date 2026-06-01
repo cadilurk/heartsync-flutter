@@ -1,5 +1,7 @@
 // ignore_for_file: prefer_initializing_formals
 
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_client.dart';
@@ -24,6 +26,9 @@ class AuthProvider extends ChangeNotifier {
   CurrentUserSession session = CurrentUserSession.empty;
   String? errorMessage;
 
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
+
   AuthProvider({
     required AuthService authService,
     required AccountService accountService,
@@ -43,15 +48,21 @@ class AuthProvider extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
 
-    final tokens = await _tokenStorage.readTokens();
-    if (tokens == null) {
-      status = AuthStatus.unauthenticated;
+    try {
+      final tokens = await _tokenStorage.readTokens();
+      if (tokens == null) {
+        status = AuthStatus.unauthenticated;
+        session = CurrentUserSession.empty;
+        notifyListeners();
+        return;
+      }
+      // bootstrap không retry — lỗi mạng khi khởi động → về login ngay
+      await refreshSession(notifyLoading: false, withRetry: false);
+    } catch (e) {
       session = CurrentUserSession.empty;
+      status = AuthStatus.unauthenticated;
       notifyListeners();
-      return;
     }
-
-    await refreshSession();
   }
 
   Future<void> register({
@@ -80,6 +91,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _retryCount = 0;
     if (!kIsWeb) {
       await FcmService().unregisterToken();
     }
@@ -94,7 +106,10 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refreshSession({bool notifyLoading = true}) async {
+  Future<void> refreshSession({
+    bool notifyLoading = true,
+    bool withRetry = true,
+  }) async {
     try {
       if (notifyLoading) {
         status = AuthStatus.loading;
@@ -103,16 +118,32 @@ class AuthProvider extends ChangeNotifier {
       session = await _accountService.me();
       status = session.isAuthenticated ? AuthStatus.authenticated : AuthStatus.unauthenticated;
       errorMessage = null;
+      _retryCount = 0;
 
       // Initialize FCM token registration if authenticated
       if (session.isAuthenticated && !kIsWeb) {
         FcmService().initialize(_apiClient);
       }
     } on ApiException catch (error) {
+      // Auth error (401 etc.) → clear tokens, không retry
+      _retryCount = 0;
       await _tokenStorage.clear();
       session = CurrentUserSession.empty;
       status = error.code == 'UNAUTHENTICATED' ? AuthStatus.unauthenticated : AuthStatus.error;
       errorMessage = error.message;
+    } catch (_) {
+      // Network error (Connection refused, timeout...) → retry với exponential backoff
+      if (withRetry && _retryCount < _maxRetries) {
+        _retryCount++;
+        // Backoff: 2s, 4s, 8s
+        await Future.delayed(Duration(seconds: pow(2, _retryCount).toInt()));
+        return refreshSession(notifyLoading: false, withRetry: true);
+      }
+      // Hết retry → về màn login
+      _retryCount = 0;
+      session = CurrentUserSession.empty;
+      status = AuthStatus.unauthenticated;
+      errorMessage = null;
     }
     notifyListeners();
   }
