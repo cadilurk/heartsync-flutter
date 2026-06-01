@@ -21,7 +21,8 @@ class SocketService extends ChangeNotifier {
     _socket = io.io(
       url,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling'])
+          .setExtraHeaders({'ngrok-skip-browser-warning': 'true'})
           .setAuth({'token': token})
           .enableReconnection()
           .setReconnectionAttempts(5)
