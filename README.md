@@ -1,17 +1,48 @@
-# heartsync
+# HeartSync
 
-A new Flutter project.
+Ứng dụng kết nối cặp đôi — Flutter + Node.js + MongoDB + Firebase FCM.
 
-## Getting Started
+## 🚀 Cách chạy project
 
-This project is a starting point for a Flutter application.
+> ⚠️ KHÔNG dùng `flutter run` trực tiếp. KHÔNG bấm Run ▶ mặc định.
+> Script sẽ tự động lấy IP máy bạn trước khi chạy.
 
-A few resources to get you started if this is your first Flutter project:
+### Windows
+Double-click `run.bat` hoặc trong terminal:
+```
+.\run.bat
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+### Mac / Linux
+```bash
+chmod +x run.sh  # Chỉ làm 1 lần
+./run.sh
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Tích hợp Android Studio (làm 1 lần)
+1. Run → Edit Configurations → bấm dấu **+** → chọn **Flutter**
+2. Name: `HeartSync`
+3. Dart entrypoint: `lib/main.dart`
+4. Cuộn xuống **Before launch** → **+** → Run External Tool → **+**
+5. Điền:
+   - Name: `Auto IP`
+   - Program: `powershell.exe`
+   - Arguments: `-ExecutionPolicy Bypass -File "$ProjectFileDir$\update_ip.ps1"`
+   - Working directory: `$ProjectFileDir$`
+6. OK → Giờ bấm ▶ là tự động lấy IP + chạy app
+
+---
+
+## Backend
+
+```bash
+cd backend
+npm install
+node src/server.js
+```
+
+Cần file `backend/firebase-service-account.json` (tải từ Firebase Console → Project Settings → Service Accounts).
+
+---
+
+*A Flutter project.*
