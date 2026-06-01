@@ -101,7 +101,7 @@ class AlarmProvider extends ChangeNotifier {
       final magnitude = sqrt(
         event.x * event.x + event.y * event.y + event.z * event.z,
       );
-      if (magnitude > 25) {
+      if (magnitude > 10) {
         sendAlarm();
       }
     });
