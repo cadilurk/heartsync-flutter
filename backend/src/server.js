@@ -10,6 +10,7 @@ import { createServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { MongoClient, ObjectId } from 'mongodb';
 import { Server } from 'socket.io';
+import createStoreRouter from './storeRouter.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -31,6 +32,7 @@ app.use(express.json());
 const client = new MongoClient(mongoUri);
 await client.connect();
 const db = client.db('heartsync');
+app.use('/', createStoreRouter(db, auth, ok, fail));
 
 let firebaseMessaging = null;
 if (fs.existsSync('./firebase-service-account.json')) {
