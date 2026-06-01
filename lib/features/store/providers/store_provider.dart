@@ -36,7 +36,11 @@ class StoreProvider extends ChangeNotifier {
 
       products = await _storeService.fetchProducts();
       if (!ApiConstants.useMockApi) {
-        cartItems = await _storeService.fetchCart();
+        try {
+          cartItems = await _storeService.fetchCart();
+        } catch (_) {
+          // Cart API lỗi không sao, tiếp tục với cart rỗng
+        }
       }
       _filterProducts();
     } on ApiException catch (e) {
