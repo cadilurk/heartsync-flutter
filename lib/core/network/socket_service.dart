@@ -11,6 +11,7 @@ class SocketService extends ChangeNotifier {
 
   void Function(String? signalId, String fromUserId, DateTime timestamp, String? signalType)? onAlarmReceived;
   void Function()? onPartnerOffline;
+  void Function()? onReconnected;
 
   void connect(String token) {
     if (_socket != null) return;
@@ -36,6 +37,10 @@ class SocketService extends ChangeNotifier {
     _socket!.onDisconnect((_) {
       _connected = false;
       notifyListeners();
+    });
+
+    _socket!.on('reconnect', (_) {
+      onReconnected?.call();
     });
 
     _socket!.on('alarm:receive', (data) {

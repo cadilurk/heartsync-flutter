@@ -53,7 +53,8 @@ class AlarmProvider extends ChangeNotifier {
         _signalService = signalService {
     _socketService.onAlarmReceived = _handleAlarmReceived;
     _socketService.onPartnerOffline = _handlePartnerOffline;
-    
+    _socketService.onReconnected = fetchUnreadSignals;
+
     // Register FCM listeners
     FcmService.onForegroundMessage = handleFcmMessage;
     FcmService.onMessageOpened = handleFcmMessage;
@@ -188,6 +189,7 @@ class AlarmProvider extends ChangeNotifier {
       final partnerName = _partnerName(_authProvider.session.partner?.email);
       final partnerInitial = partnerName.isNotEmpty ? partnerName[0].toUpperCase() : '?';
 
+      _isShowingOverlay = true;
       OverlayManager().showAlarmOverlay(
         partnerName: partnerName,
         partnerInitial: partnerInitial,
@@ -237,6 +239,7 @@ class AlarmProvider extends ChangeNotifier {
     stopShakeDetection();
     _socketService.onAlarmReceived = null;
     _socketService.onPartnerOffline = null;
+    _socketService.onReconnected = null;
     super.dispose();
   }
 }

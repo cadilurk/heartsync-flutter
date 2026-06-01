@@ -16,12 +16,15 @@ class FcmService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   ApiClient? _apiClient;
   String? _lastToken;
+  bool _initialized = false;
 
   static void Function(RemoteMessage)? onForegroundMessage;
   static void Function(RemoteMessage)? onMessageOpened;
 
   Future<void> initialize(ApiClient apiClient) async {
     _apiClient = apiClient;
+    if (_initialized) return;
+    _initialized = true;
 
     // 1. Request notification permission
     final settings = await _messaging.requestPermission(
