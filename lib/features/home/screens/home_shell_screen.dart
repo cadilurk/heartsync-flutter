@@ -26,7 +26,9 @@ class _HomeShellScreenState extends State<HomeShellScreen> with WidgetsBindingOb
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         OverlayManager().init(context);
-        context.read<AlarmProvider>().fetchUnreadSignals();
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) context.read<AlarmProvider>().fetchUnreadSignals();
+        });
       }
     });
   }
@@ -75,20 +77,49 @@ class _HomeShellScreenState extends State<HomeShellScreen> with WidgetsBindingOb
           setState(() => _index = index);
         },
         destinations: [
-          const NavigationDestination(icon: Icon(Icons.favorite_border), label: 'Home'),
+          const NavigationDestination(
+            icon: Icon(Icons.favorite_border),
+            selectedIcon: Icon(Icons.favorite),
+            label: 'Home',
+          ),
           NavigationDestination(
             icon: Badge(
               label: Text('$unreadCount'),
               isLabelVisible: unreadCount > 0,
               child: const Icon(Icons.notifications_none),
             ),
+            selectedIcon: Badge(
+              label: Text('$unreadCount'),
+              isLabelVisible: unreadCount > 0,
+              child: const Icon(Icons.notifications),
+            ),
             label: 'Alarm',
           ),
-          const NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
-          const NavigationDestination(icon: Icon(Icons.image_outlined), label: 'Space'),
-          const NavigationDestination(icon: Icon(Icons.emoji_events_outlined), label: 'Challenges'),
-          const NavigationDestination(icon: Icon(Icons.inventory_2_outlined), label: 'Store'),
-          const NavigationDestination(icon: Icon(Icons.person_outline), label: 'Account'),
+          const NavigationDestination(
+            icon: Icon(Icons.map_outlined),
+            selectedIcon: Icon(Icons.map),
+            label: 'Map',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.image_outlined),
+            selectedIcon: Icon(Icons.image),
+            label: 'Space',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events),
+            label: 'Challenges',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.inventory_2_outlined),
+            selectedIcon: Icon(Icons.inventory_2),
+            label: 'Store',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Account',
+          ),
         ],
       ),
     );

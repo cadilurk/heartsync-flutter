@@ -102,9 +102,11 @@ class _AlarmOverlayState extends State<AlarmOverlay>
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFFFFF0F5).withValues(alpha: 0.95),
-      child: Center(
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Material(
+        color: const Color(0xFFFFF0F5).withValues(alpha: 0.95),
+        child: Center(
         child: Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -271,6 +273,7 @@ class _AlarmOverlayState extends State<AlarmOverlay>
           ),
         ),
       ),
+    ),
     );
   }
 }

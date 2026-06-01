@@ -22,21 +22,27 @@ class OverlayManager {
     VoidCallback? onDismissCallback,
   }) {
     if (_entry != null || _context == null) return;
+    if (!(_context!.mounted)) return;
 
-    _entry = OverlayEntry(
-      builder: (_) => AlarmOverlay(
-        partnerName: partnerName,
-        partnerInitial: partnerInitial,
-        signalType: signalType,
-        onSendBack: onSendBack,
-        onDismiss: () {
-          dismiss();
-          onDismissCallback?.call();
-        },
-      ),
-    );
+    try {
+      _entry = OverlayEntry(
+        builder: (_) => AlarmOverlay(
+          partnerName: partnerName,
+          partnerInitial: partnerInitial,
+          signalType: signalType,
+          onSendBack: onSendBack,
+          onDismiss: () {
+            dismiss();
+            onDismissCallback?.call();
+          },
+        ),
+      );
 
-    Overlay.of(_context!).insert(_entry!);
+      Overlay.of(_context!).insert(_entry!);
+    } catch (e) {
+      debugPrint('OverlayManager: failed to show overlay — $e');
+      _entry = null;
+    }
   }
 
   void dismiss() {

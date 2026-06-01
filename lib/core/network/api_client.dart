@@ -94,6 +94,7 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl$path');
     final headers = {
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
       if (token != null) 'Authorization': 'Bearer $token',
     };
 
@@ -386,4 +387,6 @@ class MockApiBackend {
           'message': ErrorMessages.friendly(code),
         },
       };
+
+  
 }
