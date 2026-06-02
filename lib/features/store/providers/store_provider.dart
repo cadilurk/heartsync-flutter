@@ -172,6 +172,9 @@ class StoreProvider extends ChangeNotifier {
     required List<CartItem> items,
     required bool isGift,
     String? giftMessage,
+    String? shippingName,
+    String? shippingPhone,
+    String? shippingAddress,
   }) async {
     if (items.isEmpty) return null;
     try {
@@ -183,6 +186,9 @@ class StoreProvider extends ChangeNotifier {
         items: items,
         isGift: isGift,
         giftMessage: giftMessage,
+        shippingName: shippingName,
+        shippingPhone: shippingPhone,
+        shippingAddress: shippingAddress,
       );
 
       // Loại bỏ các sản phẩm đã mua khỏi giỏ hàng cục bộ

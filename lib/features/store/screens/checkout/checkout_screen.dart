@@ -124,6 +124,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         items: widget.items,
         isGift: _isGift,
         giftMessage: _isGift ? _messageController.text.trim() : null,
+        shippingName: _nameController.text.trim(),
+        shippingPhone: _phoneController.text.trim(),
+        shippingAddress: _addressController.text.trim(),
       );
 
       if (order != null && mounted) {

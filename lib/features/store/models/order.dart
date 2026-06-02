@@ -14,6 +14,9 @@ class Order {
   final String? accountName;   // Tên chủ tài khoản từ PayOS
   final String? bin;           // BIN ngân hàng từ PayOS
   final int? orderCode;
+  final String? shippingName;
+  final String? shippingPhone;
+  final String? shippingAddress;
 
   const Order({
     required this.id,
@@ -29,6 +32,9 @@ class Order {
     this.accountName,
     this.bin,
     this.orderCode,
+    this.shippingName,
+    this.shippingPhone,
+    this.shippingAddress,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -48,6 +54,9 @@ class Order {
       accountName: json['accountName'] as String?,
       bin: json['bin'] as String?,
       orderCode: json['orderCode'] as int?,
+      shippingName: json['shippingName'] as String?,
+      shippingPhone: json['shippingPhone'] as String?,
+      shippingAddress: json['shippingAddress'] as String?,
     );
   }
 
@@ -66,6 +75,9 @@ class Order {
       'accountName': accountName,
       'bin': bin,
       'orderCode': orderCode,
+      'shippingName': shippingName,
+      'shippingPhone': shippingPhone,
+      'shippingAddress': shippingAddress,
     };
   }
 }

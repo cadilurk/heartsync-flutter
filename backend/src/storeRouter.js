@@ -42,7 +42,7 @@ export default function createStoreRouter(db, auth, ok, fail) {
 
   // POST /orders - Tạo đơn hàng thanh toán hoặc gửi quà qua cổng PayOS
   router.post('/orders', auth, async (req, res) => {
-    const { items, isGift, giftMessage } = req.body;
+    const { items, isGift, giftMessage, shippingName, shippingPhone, shippingAddress } = req.body;
     if (!items || !Array.isArray(items) || items.length === 0) {
       const error = fail('INVALID_INPUT');
       return res.status(error.status).json(error.body);
@@ -108,6 +108,9 @@ export default function createStoreRouter(db, auth, ok, fail) {
       isGift: isGift || false,
       status: status,
       giftMessage: giftMessage || null,
+      shippingName: shippingName || null,
+      shippingPhone: shippingPhone || null,
+      shippingAddress: shippingAddress || null,
       checkoutUrl: paymentLink.checkoutUrl,
       qrCode: paymentLink.qrCode || null,
       accountNumber: paymentLink.accountNumber || null,
