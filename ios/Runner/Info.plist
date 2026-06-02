@@ -24,6 +24,12 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>HeartSync needs camera access so you can capture memories in Heart Space.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>HeartSync needs microphone access when recording videos for Heart Space.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>HeartSync needs photo library access so you can choose memories for Heart Space.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
