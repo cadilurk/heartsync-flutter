@@ -13,6 +13,7 @@ import '../models/milestone.dart';
 import 'milestone_dialog.dart';
 
 import '../../alarm/providers/alarm_provider.dart';
+import '../../space/screens/space_screen.dart';
 import '../../store/screens/store_screen.dart';
 
 class HomeShellScreen extends StatefulWidget {
@@ -61,7 +62,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> with WidgetsBindingOb
       const _HomeTab(),
       const AlarmScreen(),
       const _GuardedCoupleTab(title: 'Heart Map', icon: Icons.map_outlined),
-      const _GuardedCoupleTab(title: 'Heart Space', icon: Icons.image_outlined),
+      const SpaceScreen(),
       const _GuardedCoupleTab(title: 'Challenges', icon: Icons.emoji_events_outlined),
       const StoreScreen(),
       const AccountScreen(),

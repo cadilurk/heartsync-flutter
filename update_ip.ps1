@@ -25,16 +25,26 @@ $ip = (Get-NetIPAddress -AddressFamily IPv4 `
   | Where-Object { $_.InterfaceAlias -like "*Wi-Fi*" } `
   | Select-Object -First 1).IPAddress
 
+# Neu khong co WiFi, thu Ethernet (day cap)
+if (-not $ip) {
+  $ip = (Get-NetIPAddress -AddressFamily IPv4 `
+    | Where-Object { $_.InterfaceAlias -like "*Ethernet*" } `
+    | Select-Object -First 1).IPAddress
+}
+
 if (-not $ip) {
   $ip = (Get-NetIPAddress -AddressFamily IPv4 `
     | Where-Object { $_.PrefixOrigin -eq "Dhcp" } `
     | Select-Object -First 1).IPAddress
 }
 
+# Loai bo IP APIPA (169.254.x.x - khong co mang)
+if ($ip -like "169.254.*") {
+  Write-Host "WARNING: IP khong hop le ($ip), kiem tra lai wifi/cap mang!"
+  $ip = "localhost"
+}
+
 if (-not $ip) { $ip = "localhost" }
-
-Write-Host "IP: $ip"
-
 # Update api_constants.dart
 $file = "lib\core\constants\api_constants.dart"
 $content = Get-Content $file -Raw
@@ -85,9 +95,8 @@ try {
     Write-Host "Nhap domain: $domain"
     Write-Host ""
     $domain | Set-Clipboard
-    Write-Host "Da copy domain vao clipboard!"
+Write-Host "Da copy domain vao clipboard!"
   }
 } catch {
   Write-Host "Chua lay duoc URL, mo: http://127.0.0.1:4040"
 }
-
