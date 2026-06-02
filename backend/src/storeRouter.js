@@ -7,6 +7,121 @@ export default function createStoreRouter(db, auth, ok, fail) {
   const orders = db.collection('orders');
   const carts = db.collection('carts');
 
+  // Tự động seed sản phẩm nếu collection products trống
+  products.countDocuments().then(async (count) => {
+    if (count === 0) {
+      console.log('[Seed] Collection products trống. Đang nạp sản phẩm mẫu...');
+      const mockProductsList = [
+        {
+          id: 'p1',
+          name: 'Ly Sứ Đôi Hoa Hồng',
+          description: 'Cặp ly sứ cao cấp thiết kế dành riêng cho các cặp đôi. Thích hợp cho trà chiều ngọt ngào cùng partner.',
+          price: 180000,
+          imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600',
+          images: [
+            'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600',
+            'https://images.unsplash.com/photo-1576092768241-dec231879fc3?q=80&w=600',
+            'https://images.unsplash.com/photo-1536304997881-a372c179924b?q=80&w=600'
+          ],
+          rating: 4.8,
+          category: 'Quà tặng',
+          isDigital: false,
+          inStock: 15,
+          soldCount: 142
+        },
+        {
+          id: 'p2',
+          name: 'Móc Khóa Da Khắc Tên',
+          description: 'Móc khóa bằng da bò thật, khắc tên của bạn và đối phương. Một món quà nhỏ luôn bên mình.',
+          price: 95000,
+          imageUrl: 'https://images.unsplash.com/photo-1582139329536-e7284fece509?q=80&w=600',
+          images: [
+            'https://images.unsplash.com/photo-1582139329536-e7284fece509?q=80&w=600',
+            'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?q=80&w=600',
+            'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?q=80&w=600'
+          ],
+          rating: 4.6,
+          category: 'Quà tặng',
+          isDigital: false,
+          inStock: 45,
+          soldCount: 389
+        },
+        {
+          id: 'p3',
+          name: 'Voucher Hẹn Hò Nến & Hoa',
+          description: 'Một bữa tối lãng mạn dành cho 2 người tại nhà hàng sân vườn Rose Garden với hoa hồng và ánh nến lung linh.',
+          price: 850000,
+          imageUrl: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=600',
+          images: [
+            'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=600',
+            'https://images.unsplash.com/photo-1522413452208-996ff3f3e740?q=80&w=600',
+            'https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=600'
+          ],
+          rating: 4.9,
+          category: 'Hẹn hò',
+          isDigital: true,
+          inStock: 99,
+          soldCount: 78
+        },
+        {
+          id: 'p4',
+          name: 'Theme Ứng Dụng Rose Gold Premium',
+          description: 'Thay đổi giao diện ứng dụng HeartSync sang màu hồng vàng kim sa trọng, lấp lánh và đầy lãng mạn.',
+          price: 49000,
+          imageUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=600',
+          images: [
+            'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=600',
+            'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600',
+            'https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?q=80&w=600'
+          ],
+          rating: 4.7,
+          category: 'Vật phẩm số',
+          isDigital: true,
+          inStock: 9999,
+          soldCount: 1205
+        },
+        {
+          id: 'p5',
+          name: 'Bộ Bài Truth or Dare Couple',
+          description: '50 thử thách và câu hỏi sâu sắc giúp bạn và partner hiểu nhau hơn trong các buổi hẹn hò.',
+          price: 120000,
+          imageUrl: 'https://images.unsplash.com/photo-1606167668584-78701c57f13d?q=80&w=600',
+          images: [
+            'https://images.unsplash.com/photo-1606167668584-78701c57f13d?q=80&w=600',
+            'https://images.unsplash.com/photo-1585504198199-20277593b94f?q=80&w=600',
+            'https://images.unsplash.com/photo-1511193311914-0346f16efe90?q=80&w=600'
+          ],
+          rating: 4.9,
+          category: 'Hẹn hò',
+          isDigital: false,
+          inStock: 30,
+          soldCount: 64
+        },
+        {
+          id: 'p6',
+          name: 'Album Ảnh Kỷ Niệm Gỗ Hand-made',
+          description: 'Cuốn album gỗ sang trọng để bạn dán những tấm ảnh chụp chung ngọt ngào nhất của hai người.',
+          price: 250000,
+          imageUrl: 'https://images.unsplash.com/photo-1544816155-12df9643f363?q=80&w=600',
+          images: [
+            'https://images.unsplash.com/photo-1544816155-12df9643f363?q=80&w=600',
+            'https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600',
+            'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=600'
+          ],
+          rating: 4.5,
+          category: 'Quà tặng',
+          isDigital: false,
+          inStock: 8,
+          soldCount: 29
+        }
+      ];
+      await products.insertMany(mockProductsList);
+      console.log('[Seed] Đã nạp xong 6 sản phẩm mẫu vào MongoDB.');
+    }
+  }).catch(err => {
+    console.error('[Seed] Lỗi seed sản phẩm:', err);
+  });
+
   // GET /products - Lấy danh sách sản phẩm từ MongoDB
   router.get('/products', async (_req, res) => {
     try {

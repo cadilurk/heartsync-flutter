@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
+import '../core/network/socket_service.dart';
 import '../core/storage/token_storage.dart';
 import '../features/account/providers/account_provider.dart';
 import '../features/account/services/account_service.dart';
+import '../features/alarm/providers/alarm_provider.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/auth/providers/current_user_provider.dart';
 import '../features/auth/services/auth_service.dart';
+import '../features/home/providers/milestone_provider.dart';
+import '../features/home/services/milestone_service.dart';
 import '../features/pairing/providers/pairing_provider.dart';
 import '../features/pairing/services/pairing_service.dart';
+import '../features/alarm/services/signal_service.dart';
+import '../features/space/providers/space_provider.dart';
+import '../features/space/services/space_service.dart';
 import '../features/store/providers/store_provider.dart';
 import '../features/store/services/store_service.dart';
 import 'router.dart';
@@ -24,7 +32,10 @@ class HeartSyncApp extends StatelessWidget {
       providers: [
         Provider(create: (_) => TokenStorage()),
         ProxyProvider<TokenStorage, ApiClient>(
-          update: (_, storage, previous) => previous ?? ApiClient(tokenStorage: storage),
+          update: (_, storage, previous) => previous ?? ApiClient(
+            tokenStorage: storage,
+            baseUrl: ApiConstants.resolveBaseUrl(),
+          ),
         ),
         ProxyProvider<ApiClient, AuthService>(
           update: (_, apiClient, previous) => previous ?? AuthService(apiClient),
@@ -35,21 +46,32 @@ class HeartSyncApp extends StatelessWidget {
         ProxyProvider<ApiClient, PairingService>(
           update: (_, apiClient, previous) => previous ?? PairingService(apiClient),
         ),
+        ProxyProvider<ApiClient, SignalService>(
+          update: (_, apiClient, previous) => previous ?? SignalService(apiClient),
+        ),
+        ProxyProvider<ApiClient, MilestoneService>(
+          update: (_, apiClient, previous) => previous ?? MilestoneService(apiClient),
+        ),
         ProxyProvider<ApiClient, StoreService>(
           update: (_, apiClient, previous) => previous ?? StoreService(apiClient),
+        ),
+        ProxyProvider<ApiClient, SpaceService>(
+          update: (_, apiClient, previous) => previous ?? SpaceService(apiClient),
         ),
         ChangeNotifierProxyProvider3<AuthService, AccountService, TokenStorage, AuthProvider>(
           create: (context) => AuthProvider(
             authService: context.read<AuthService>(),
             accountService: context.read<AccountService>(),
             tokenStorage: context.read<TokenStorage>(),
+            apiClient: context.read<ApiClient>(),
           ),
-          update: (_, authService, accountService, tokenStorage, previous) =>
+          update: (context, authService, accountService, tokenStorage, previous) =>
               previous ??
               AuthProvider(
                 authService: authService,
                 accountService: accountService,
                 tokenStorage: tokenStorage,
+                apiClient: context.read<ApiClient>(),
               ),
         ),
         ChangeNotifierProvider(create: (_) => CurrentUserProvider()),
@@ -76,17 +98,94 @@ class HeartSyncApp extends StatelessWidget {
           update: (_, storeService, previous) =>
               previous ?? StoreProvider(storeService: storeService),
         ),
+        ChangeNotifierProvider(
+          create: (context) => SpaceProvider(spaceService: context.read<SpaceService>()),
+        ),
+        ChangeNotifierProvider(create: (_) => SocketService()),
+        ChangeNotifierProxyProvider3<SocketService, AuthProvider, SignalService, AlarmProvider>(
+          create: (context) => AlarmProvider(
+            socketService: context.read<SocketService>(),
+            authProvider: context.read<AuthProvider>(),
+            signalService: context.read<SignalService>(),
+          ),
+          update: (_, socketService, authProvider, signalService, previous) =>
+              previous ??
+              AlarmProvider(
+                socketService: socketService,
+                authProvider: authProvider,
+                signalService: signalService,
+              ),
+        ),
+        ChangeNotifierProxyProvider<MilestoneService, MilestoneProvider>(
+          create: (context) => MilestoneProvider(
+            milestoneService: context.read<MilestoneService>(),
+          ),
+          update: (_, milestoneService, previous) =>
+              previous ?? MilestoneProvider(milestoneService: milestoneService),
+        ),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
-          return MaterialApp.router(
-            title: 'Heart Sync',
-            debugShowCheckedModeBanner: false,
-            theme: buildAppTheme(),
-            routerConfig: createRouter(authProvider),
+          return _SocketConnector(
+            child: MaterialApp.router(
+              title: 'Heart Sync',
+              debugShowCheckedModeBanner: false,
+              theme: buildAppTheme(),
+              routerConfig: createRouter(authProvider),
+            ),
           );
         },
       ),
     );
   }
+}
+
+// Lắng nghe AuthProvider và kết nối / ngắt socket tương ứng
+class _SocketConnector extends StatefulWidget {
+  final Widget child;
+  const _SocketConnector({required this.child});
+
+  @override
+  State<_SocketConnector> createState() => _SocketConnectorState();
+}
+
+class _SocketConnectorState extends State<_SocketConnector> {
+  AuthProvider? _authProvider;
+  AuthStatus? _lastStatus;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newAuth = context.read<AuthProvider>();
+    if (_authProvider != newAuth) {
+      _authProvider?.removeListener(_onAuthChanged);
+      _authProvider = newAuth;
+      _authProvider!.addListener(_onAuthChanged);
+      _onAuthChanged();
+    }
+  }
+
+  void _onAuthChanged() async {
+    final status = _authProvider!.status;
+    if (status == _lastStatus) return;
+    _lastStatus = status;
+
+    if (status == AuthStatus.authenticated) {
+      final token = await context.read<TokenStorage>().readAccessToken();
+      if (token != null && mounted) {
+        context.read<SocketService>().connect(token);
+      }
+    } else if (status == AuthStatus.unauthenticated) {
+      if (mounted) context.read<SocketService>().disconnect();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authProvider?.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

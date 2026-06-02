@@ -10,10 +10,14 @@ class AppColors {
 }
 
 ThemeData buildAppTheme() {
+  const fallbackFonts = ['Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji'];
   return ThemeData(
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.bg,
     colorScheme: ColorScheme.fromSeed(seedColor: AppColors.active),
+    textTheme: ThemeData.light().textTheme.apply(
+          fontFamilyFallback: fallbackFonts,
+        ),
     inputDecorationTheme: InputDecorationTheme(
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       focusedBorder: OutlineInputBorder(
