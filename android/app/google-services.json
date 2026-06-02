@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "17249192566",
+    "project_id": "heartsync-aa57a",
+    "storage_bucket": "heartsync-aa57a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:17249192566:android:4a46db5ba0ec58feaead57",
+        "android_client_info": {
+          "package_name": "com.example.heartsync_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPVbD17b6fbFJl5I0iFmH06XneURWixXE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

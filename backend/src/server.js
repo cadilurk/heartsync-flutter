@@ -1,11 +1,22 @@
 import 'dotenv/config';
+import dns from 'dns';
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+import admin from 'firebase-admin';
+import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import express from 'express';
+import { createServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { MongoClient, ObjectId } from 'mongodb';
+import { Server } from 'socket.io';
+import createStoreRouter from './storeRouter.js';
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: true, methods: ['GET', 'POST'] },
+});
 const port = Number(process.env.PORT || 5291);
 const mongoUri = process.env.MONGO_URI;
 const jwtSecret = process.env.JWT_SECRET || 'dev-only-change-me';
@@ -21,15 +32,36 @@ app.use(express.json());
 const client = new MongoClient(mongoUri);
 await client.connect();
 const db = client.db('heartsync');
+app.use('/', createStoreRouter(db, auth, ok, fail));
+
+let firebaseMessaging = null;
+if (fs.existsSync('./firebase-service-account.json')) {
+  try {
+    const serviceAccount = JSON.parse(fs.readFileSync('./firebase-service-account.json', 'utf8'));
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    firebaseMessaging = admin.messaging();
+    console.log('Firebase Admin SDK initialized successfully.');
+  } catch (error) {
+    console.error('Failed to initialize Firebase Admin SDK:', error);
+  }
+} else {
+  console.warn('Warning: firebase-service-account.json not found. FCM push notifications will be disabled.');
+}
 
 const users = db.collection('users');
 const profiles = db.collection('profiles');
 const relationships = db.collection('coupleRelationships');
 const pairingCodes = db.collection('pairingCodes');
+const signals = db.collection('signals');
+const milestones = db.collection('milestones');
 
 await users.createIndex({ email: 1 }, { unique: true });
 await pairingCodes.createIndex({ code: 1 }, { unique: true });
 await pairingCodes.createIndex({ expiredAt: 1 }, { expireAfterSeconds: 3600 });
+await signals.createIndex({ toUserId: 1, readAt: 1 });
+await signals.createIndex({ sentAt: -1 });
 
 function ok(data) {
   return { success: true, data, error: null };
@@ -169,6 +201,7 @@ app.post('/auth/register', async (req, res) => {
       passwordHash,
       authProvider: 'email',
       status: 'active',
+      fcmTokens: [],
       createdAt: now,
       updatedAt: now
     });
@@ -250,6 +283,81 @@ app.put('/account/profile', auth, async (req, res) => {
   );
   const profile = await profiles.findOne({ userId: req.user._id });
   return res.json(ok(serializeProfile(profile)));
+});
+
+app.put('/users/me/fcm-token', auth, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Token is required' });
+    }
+    await users.updateOne(
+      { _id: req.user._id },
+      { $addToSet: { fcmTokens: token } }
+    );
+    return res.json(ok(true));
+  } catch (error) {
+    console.error('Error in PUT /users/me/fcm-token:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+app.delete('/users/me/fcm-token', auth, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Token is required' });
+    }
+    await users.updateOne(
+      { _id: req.user._id },
+      { $pull: { fcmTokens: token } }
+    );
+    return res.json(ok(true));
+  } catch (error) {
+    console.error('Error in DELETE /users/me/fcm-token:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+// POST /account/relationship/shift-date
+app.post('/account/relationship/shift-date', auth, async (req, res) => {
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    const profile = await profiles.findOne({ userId: req.user._id });
+    
+    let currentDateString = relationship 
+      ? relationship.relationshipStartDate 
+      : (profile ? profile.relationshipStartDate : null);
+      
+    if (!currentDateString) {
+      currentDateString = new Date().toISOString();
+    }
+    
+    const currentDate = new Date(currentDateString);
+    currentDate.setDate(currentDate.getDate() - 1); // Lùi ngày kỉ niệm về quá khứ 1 ngày
+    const newDateString = currentDate.toISOString();
+    
+    if (relationship) {
+      await relationships.updateOne(
+        { _id: relationship._id },
+        { $set: { relationshipStartDate: newDateString, updatedAt: new Date() } }
+      );
+    }
+    
+    await profiles.updateOne(
+      { userId: req.user._id },
+      { $set: { relationshipStartDate: newDateString, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    
+    return res.json(ok({ newStartDate: newDateString }));
+  } catch (error) {
+    console.error('Error shifting start date:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
 });
 
 app.post('/pairing/generate', auth, async (req, res) => {
@@ -351,11 +459,482 @@ app.delete('/pairing/disconnect', auth, async (req, res) => {
   return res.json(ok(true));
 });
 
+// ── Signals API Endpoints ──────────────────────────────────────────────────
+
+app.post('/signals', auth, async (req, res) => {
+  try {
+    const { signalType } = req.body;
+    if (!['miss', 'care', 'love'].includes(signalType)) {
+      const error = fail('INVALID_INPUT');
+      return res.status(error.status).json(error.body);
+    }
+
+    const relationship = await activeRelationshipFor(req.user._id);
+    if (!relationship) {
+      const error = fail('RELATIONSHIP_NOT_FOUND');
+      error.body.error.message = 'Chưa ghép đôi';
+      return res.status(error.status).json(error.body);
+    }
+
+    const partnerId = String(relationship.userAId) === String(req.user._id)
+      ? relationship.userBId
+      : relationship.userAId;
+
+    const signal = {
+      fromUserId: req.user._id,
+      toUserId: partnerId,
+      signalType,
+      sentAt: new Date(),
+      deliveredViaSocket: false,
+      fcmSent: false,
+      readAt: null
+    };
+
+    const result = await signals.insertOne(signal);
+
+    const partnerSocketId = onlineUsers.get(String(partnerId));
+    if (partnerSocketId) {
+      io.to(partnerSocketId).emit('alarm:receive', {
+        signalId: result.insertedId.toString(),
+        fromUserId: String(req.user._id),
+        timestamp: signal.sentAt.toISOString(),
+        signalType: signal.signalType
+      });
+      await signals.updateOne(
+        { _id: result.insertedId },
+        { $set: { deliveredViaSocket: true } }
+      );
+      signal.deliveredViaSocket = true;
+    } else {
+      if (firebaseMessaging) {
+        const partner = await users.findOne({ _id: partnerId });
+        if (partner && partner.fcmTokens && partner.fcmTokens.length > 0) {
+          const labels = { miss: 'Nhớ em lắm...', care: 'Đang nghĩ đến em', love: 'Yêu em lắm...' };
+          const emojis = { miss: '🥺', care: '🤗', love: '💕' };
+          const senderProfile = await profiles.findOne({ userId: req.user._id });
+          const senderName = senderProfile?.displayName || req.user.email.split('@')[0];
+
+          try {
+            await firebaseMessaging.sendEachForMulticast({
+              tokens: partner.fcmTokens,
+              notification: {
+                title: `${senderName} gửi ${emojis[signalType]}`,
+                body: labels[signalType]
+              },
+              data: {
+                type: 'heart_alarm',
+                signalId: result.insertedId.toString(),
+                fromUserId: String(req.user._id),
+                signalType: signalType
+              },
+              android: {
+                priority: 'high',
+                notification: {
+                  channelId: 'heart_alarm',
+                  color: '#EC4899',
+                  vibrateTimingsMillis: [0, 500, 200, 500]
+                }
+              }
+            });
+            await signals.updateOne(
+              { _id: result.insertedId },
+              { $set: { fcmSent: true } }
+            );
+            signal.fcmSent = true;
+          } catch (fcmError) {
+            console.error('Failed to send FCM notifications:', fcmError);
+          }
+        }
+      }
+    }
+    
+    return res.json(ok({
+      id: result.insertedId.toString(),
+      fromUserId: String(signal.fromUserId),
+      toUserId: String(signal.toUserId),
+      signalType: signal.signalType,
+      sentAt: signal.sentAt.toISOString(),
+      deliveredViaSocket: signal.deliveredViaSocket,
+      fcmSent: signal.fcmSent,
+      readAt: null
+    }));
+  } catch (error) {
+    console.error('Error in POST /signals:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+app.get('/signals/unread', auth, async (req, res) => {
+  try {
+    const unreadList = await signals.aggregate([
+      { $match: { toUserId: req.user._id, readAt: null } },
+      { $sort: { sentAt: 1 } },
+      { $limit: 50 },
+      {
+        $lookup: {
+          from: 'profiles',
+          localField: 'fromUserId',
+          foreignField: 'userId',
+          as: 'senderProfile'
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          fromUserId: 1,
+          toUserId: 1,
+          signalType: 1,
+          sentAt: 1,
+          deliveredViaSocket: 1,
+          fcmSent: 1,
+          readAt: 1,
+          senderProfile: { $arrayElemAt: ['$senderProfile', 0] }
+        }
+      }
+    ]).toArray();
+
+    const responseData = unreadList.map(s => ({
+      id: s._id.toString(),
+      fromUserId: s.fromUserId.toString(),
+      toUserId: s.toUserId.toString(),
+      signalType: s.signalType,
+      sentAt: s.sentAt.toISOString(),
+      deliveredViaSocket: s.deliveredViaSocket,
+      fcmSent: s.fcmSent,
+      readAt: s.readAt ? s.readAt.toISOString() : null,
+      fromDisplayName: s.senderProfile?.displayName || null,
+      fromAvatarUrl: s.senderProfile?.avatarUrl || null
+    }));
+
+    return res.json(ok(responseData));
+  } catch (error) {
+    console.error('Error in GET /signals/unread:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+app.get('/signals/history', auth, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit || 20), 100);
+    const before = req.query.before;
+
+    const matchQuery = {
+      $or: [
+        { fromUserId: req.user._id },
+        { toUserId: req.user._id }
+      ]
+    };
+
+    if (before) {
+      const beforeDate = new Date(before);
+      if (!isNaN(beforeDate.getTime())) {
+        matchQuery.sentAt = { $lt: beforeDate };
+      }
+    }
+
+    const historyList = await signals.aggregate([
+      { $match: matchQuery },
+      { $sort: { sentAt: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'profiles',
+          localField: 'fromUserId',
+          foreignField: 'userId',
+          as: 'senderProfile'
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          fromUserId: 1,
+          toUserId: 1,
+          signalType: 1,
+          sentAt: 1,
+          deliveredViaSocket: 1,
+          fcmSent: 1,
+          readAt: 1,
+          senderProfile: { $arrayElemAt: ['$senderProfile', 0] }
+        }
+      }
+    ]).toArray();
+
+    const responseData = historyList.map(s => ({
+      id: s._id.toString(),
+      fromUserId: s.fromUserId.toString(),
+      toUserId: s.toUserId.toString(),
+      signalType: s.signalType,
+      sentAt: s.sentAt.toISOString(),
+      deliveredViaSocket: s.deliveredViaSocket,
+      fcmSent: s.fcmSent,
+      readAt: s.readAt ? s.readAt.toISOString() : null,
+      fromDisplayName: s.senderProfile?.displayName || null,
+      fromAvatarUrl: s.senderProfile?.avatarUrl || null
+    }));
+
+    return res.json(ok(responseData));
+  } catch (error) {
+    console.error('Error in GET /signals/history:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+app.patch('/signals/:id/read', auth, async (req, res) => {
+  try {
+    const signalId = req.params.id;
+    if (!ObjectId.isValid(signalId)) {
+      return res.status(400).json({ success: false, error: 'Invalid ID format' });
+    }
+    const signal = await signals.findOne({ _id: new ObjectId(signalId) });
+    if (!signal) {
+      return res.status(404).json({ success: false, error: 'Signal not found' });
+    }
+    if (String(signal.toUserId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+    if (!signal.readAt) {
+      await signals.updateOne(
+        { _id: new ObjectId(signalId) },
+        { $set: { readAt: new Date() } }
+      );
+    }
+    return res.json(ok(true));
+  } catch (error) {
+    console.error('Error in PATCH /signals/:id/read:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+app.patch('/signals/read-all', auth, async (req, res) => {
+  try {
+    await signals.updateMany(
+      { toUserId: req.user._id, readAt: null },
+      { $set: { readAt: new Date() } }
+    );
+    return res.json(ok(true));
+  } catch (error) {
+    console.error('Error in PATCH /signals/read-all:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+// ── Milestones API Endpoints ───────────────────────────────────────────────
+
+// GET /milestones
+app.get('/milestones', auth, async (req, res) => {
+  const relationship = await activeRelationshipFor(req.user._id);
+  let query = {};
+  if (relationship) {
+    query = {
+      $or: [
+        { relationshipId: relationship._id },
+        { userId: req.user._id },
+        { userId: String(relationship.userAId) === String(req.user._id) ? relationship.userBId : relationship.userAId }
+      ]
+    };
+  } else {
+    query = { userId: req.user._id };
+  }
+  try {
+    const list = await milestones.find(query).sort({ date: 1 }).toArray();
+    const serialized = list.map(item => ({
+      id: item._id.toString(),
+      userId: item.userId.toString(),
+      relationshipId: item.relationshipId ? item.relationshipId.toString() : null,
+      title: item.title,
+      date: item.date,
+      icon: item.icon,
+      type: item.type || 'memory',
+      isCompleted: item.isCompleted ?? false,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString()
+    }));
+    return res.json(ok(serialized));
+  } catch (error) {
+    console.error('Error fetching milestones:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// POST /milestones
+app.post('/milestones', auth, async (req, res) => {
+  const { title, date, icon } = req.body;
+  if (!title || !date) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    const now = new Date();
+    const milestone = {
+      userId: req.user._id,
+      relationshipId: relationship ? relationship._id : null,
+      title: String(title).trim(),
+      date: String(date), // YYYY-MM-DD
+      icon: String(icon || '🎉'),
+      type: String(req.body.type || 'memory'), // 'memory' or 'challenge'
+      isCompleted: Boolean(req.body.isCompleted ?? false),
+      createdAt: now,
+      updatedAt: now
+    };
+    const result = await milestones.insertOne(milestone);
+    return res.json(ok({
+      id: result.insertedId.toString(),
+      userId: milestone.userId.toString(),
+      relationshipId: milestone.relationshipId ? milestone.relationshipId.toString() : null,
+      title: milestone.title,
+      date: milestone.date,
+      icon: milestone.icon,
+      type: milestone.type,
+      isCompleted: milestone.isCompleted,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    }));
+  } catch (error) {
+    console.error('Error creating milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// PUT /milestones/:id
+app.put('/milestones/:id', auth, async (req, res) => {
+  const { id } = req.params;
+  const { title, date, icon } = req.body;
+  if (!title || !date) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    const query = { _id: new ObjectId(id) };
+    const milestone = await milestones.findOne(query);
+    if (!milestone) {
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+    const isCreator = String(milestone.userId) === String(req.user._id);
+    const isPartner = relationship && (
+      String(milestone.relationshipId) === String(relationship._id) ||
+      String(milestone.userId) === String(String(relationship.userAId) === String(req.user._id) ? relationship.userBId : relationship.userAId)
+    );
+    if (!isCreator && !isPartner) {
+      const error = fail('UNAUTHENTICATED', 401);
+      return res.status(error.status).json(error.body);
+    }
+    const now = new Date();
+    const { type, isCompleted } = req.body;
+    await milestones.updateOne(
+      query,
+      {
+        $set: {
+          title: String(title).trim(),
+          date: String(date),
+          icon: String(icon || '🎉'),
+          type: String(type || 'memory'),
+          isCompleted: Boolean(isCompleted ?? false),
+          updatedAt: now
+        }
+      }
+    );
+    const updated = await milestones.findOne(query);
+    return res.json(ok({
+      id: updated._id.toString(),
+      userId: updated.userId.toString(),
+      relationshipId: updated.relationshipId ? updated.relationshipId.toString() : null,
+      title: updated.title,
+      date: updated.date,
+      icon: updated.icon,
+      type: updated.type || 'memory',
+      isCompleted: updated.isCompleted ?? false,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString()
+    }));
+  } catch (error) {
+    console.error('Error updating milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// DELETE /milestones/:id
+app.delete('/milestones/:id', auth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    const query = { _id: new ObjectId(id) };
+    const milestone = await milestones.findOne(query);
+    if (!milestone) {
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+    const isCreator = String(milestone.userId) === String(req.user._id);
+    const isPartner = relationship && (
+      String(milestone.relationshipId) === String(relationship._id) ||
+      String(milestone.userId) === String(String(relationship.userAId) === String(req.user._id) ? relationship.userBId : relationship.userAId)
+    );
+    if (!isCreator && !isPartner) {
+      const error = fail('UNAUTHENTICATED', 401);
+      return res.status(error.status).json(error.body);
+    }
+    await milestones.deleteOne(query);
+    return res.json(ok(true));
+  } catch (error) {
+    console.error('Error deleting milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
 app.use((_req, res) => {
   const error = fail('SERVER_ERROR', 404);
   return res.status(error.status).json(error.body);
 });
 
-app.listen(port, () => {
-  console.log(`Heart Sync API listening on http://127.0.0.1:${port}`);
+// ── Socket.io ──────────────────────────────────────────────────────────────
+
+const onlineUsers = new Map(); // userId → socketId
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error('Unauthorized'));
+  try {
+    const payload = jwt.verify(token, jwtSecret);
+    socket.userId = payload.sub;
+    next();
+  } catch {
+    next(new Error('Unauthorized'));
+  }
+});
+
+io.on('connection', (socket) => {
+  onlineUsers.set(socket.userId, socket.id);
+
+  socket.on('alarm:send', ({ partnerId, signalType } = {}) => {
+    if (!partnerId) return;
+    const partnerSocketId = onlineUsers.get(String(partnerId));
+    if (partnerSocketId) {
+      io.to(partnerSocketId).emit('alarm:receive', {
+        fromUserId: socket.userId,
+        timestamp: new Date().toISOString(),
+        signalType: signalType || 'love',
+      });
+    } else {
+      socket.emit('alarm:partner_offline');
+    }
+  });
+
+  socket.on('disconnect', () => {
+    onlineUsers.delete(socket.userId);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+
+httpServer.listen(port, '0.0.0.0', () => {
+  console.log(`Server listening on 0.0.0.0:${port} — LAN IP: 10.12.65.104:${port}`);
 });

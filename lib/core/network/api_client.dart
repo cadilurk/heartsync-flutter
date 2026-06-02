@@ -46,6 +46,14 @@ class ApiClient {
     return _send<T>('PUT', path, body, parseData);
   }
 
+  Future<T> patch<T>(
+    String path,
+    Map<String, dynamic>? body,
+    T Function(Object? json) parseData,
+  ) {
+    return _send<T>('PATCH', path, body, parseData);
+  }
+
   Future<T> delete<T>(
     String path,
     Map<String, dynamic>? body,
@@ -86,6 +94,7 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl$path');
     final headers = {
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
       if (token != null) 'Authorization': 'Bearer $token',
     };
 
@@ -99,6 +108,9 @@ class ApiClient {
         break;
       case 'PUT':
         response = await _httpClient.put(uri, headers: headers, body: jsonEncode(body ?? {}));
+        break;
+      case 'PATCH':
+        response = await _httpClient.patch(uri, headers: headers, body: jsonEncode(body ?? {}));
         break;
       case 'DELETE':
         response = await _httpClient.delete(uri, headers: headers, body: jsonEncode(body ?? {}));
@@ -125,6 +137,69 @@ class MockApiBackend {
   final Map<String, Map<String, dynamic>> _relationshipsByUserId = {};
   final Map<String, Map<String, dynamic>> _pairingCodes = {};
 
+  final List<Map<String, dynamic>> _mockMilestones = [
+    {
+      'id': 'm1',
+      'userId': 'user_1',
+      'relationshipId': 'rel_user_1_user_2',
+      'title': 'First Meeting',
+      'date': '2024-01-14',
+      'icon': '👋',
+      'type': 'memory',
+      'isCompleted': false,
+      'createdAt': '2026-05-29T00:00:00Z',
+      'updatedAt': '2026-05-29T00:00:00Z',
+    },
+    {
+      'id': 'm2',
+      'userId': 'user_1',
+      'relationshipId': 'rel_user_1_user_2',
+      'title': '100 Days Anniversary',
+      'date': '2024-04-23',
+      'icon': '💯',
+      'type': 'memory',
+      'isCompleted': false,
+      'createdAt': '2026-05-29T00:00:00Z',
+      'updatedAt': '2026-05-29T00:00:00Z',
+    },
+    {
+      'id': 'm3',
+      'userId': 'user_1',
+      'relationshipId': 'rel_user_1_user_2',
+      'title': "Valentine's Day 2025",
+      'date': '2025-02-14',
+      'icon': '💝',
+      'type': 'memory',
+      'isCompleted': false,
+      'createdAt': '2026-05-29T00:00:00Z',
+      'updatedAt': '2026-05-29T00:00:00Z',
+    },
+    {
+      'id': 'm4',
+      'userId': 'user_1',
+      'relationshipId': 'rel_user_1_user_2',
+      'title': 'Call partner for 1 hour',
+      'date': '2025-06-15',
+      'icon': '📞',
+      'type': 'challenge',
+      'isCompleted': true,
+      'createdAt': '2026-05-29T00:00:00Z',
+      'updatedAt': '2026-05-29T00:00:00Z',
+    },
+    {
+      'id': 'm5',
+      'userId': 'user_1',
+      'relationshipId': 'rel_user_1_user_2',
+      'title': 'Cook dinner together',
+      'date': '2025-06-20',
+      'icon': '🍳',
+      'type': 'challenge',
+      'isCompleted': false,
+      'createdAt': '2026-05-29T00:00:00Z',
+      'updatedAt': '2026-05-29T00:00:00Z',
+    },
+  ];
+
   Future<Map<String, dynamic>> handle(
     String method,
     String path,
@@ -142,10 +217,23 @@ class MockApiBackend {
 
     if (method == 'GET' && path == '/account/me') return _me(user);
     if (method == 'PUT' && path == '/account/profile') return _updateProfile(user, body ?? {});
+    if (method == 'POST' && path == '/account/relationship/shift-date') return _shiftDate(user);
     if (method == 'POST' && path == '/pairing/generate') return _generateCode(user);
     if (method == 'POST' && path == '/pairing/connect') return _connect(user, body ?? {});
     if (method == 'GET' && path == '/pairing/status') return _pairingStatus(user);
     if (method == 'DELETE' && path == '/pairing/disconnect') return _disconnect(user);
+
+    // Milestones routes
+    if (method == 'GET' && path == '/milestones') return _getMilestones(user);
+    if (method == 'POST' && path == '/milestones') return _createMilestone(user, body ?? {});
+    if (method == 'PUT' && path.startsWith('/milestones/')) {
+      final id = path.replaceFirst('/milestones/', '');
+      return _updateMilestone(user, id, body ?? {});
+    }
+    if (method == 'DELETE' && path.startsWith('/milestones/')) {
+      final id = path.replaceFirst('/milestones/', '');
+      return _deleteMilestone(user, id);
+    }
 
     return _error('SERVER_ERROR');
   }
@@ -375,4 +463,80 @@ class MockApiBackend {
           'message': ErrorMessages.friendly(code),
         },
       };
+
+  Map<String, dynamic> _getMilestones(Map<String, dynamic> user) {
+    return _ok(_mockMilestones);
+  }
+
+  Map<String, dynamic> _createMilestone(Map<String, dynamic> user, Map<String, dynamic> body) {
+    final now = DateTime.now().toUtc().toIso8601String();
+    final milestone = {
+      'id': 'm_${DateTime.now().millisecondsSinceEpoch}',
+      'userId': user['id'],
+      'relationshipId': _relationshipsByUserId[user['id']]?['id'],
+      'title': body['title']?.toString() ?? '',
+      'date': body['date']?.toString() ?? '',
+      'icon': body['icon']?.toString() ?? '🎉',
+      'type': body['type']?.toString() ?? 'memory',
+      'isCompleted': body['isCompleted'] as bool? ?? false,
+      'createdAt': now,
+      'updatedAt': now,
+    };
+    _mockMilestones.add(milestone);
+    return _ok(milestone);
+  }
+
+  Map<String, dynamic> _updateMilestone(Map<String, dynamic> user, String id, Map<String, dynamic> body) {
+    final index = _mockMilestones.indexWhere((item) => item['id'] == id);
+    if (index == -1) return _error('SERVER_ERROR');
+    
+    final item = _mockMilestones[index];
+    item['title'] = body['title']?.toString() ?? item['title'];
+    item['date'] = body['date']?.toString() ?? item['date'];
+    item['icon'] = body['icon']?.toString() ?? item['icon'];
+    item['type'] = body['type']?.toString() ?? item['type'] ?? 'memory';
+    item['isCompleted'] = body['isCompleted'] as bool? ?? item['isCompleted'] ?? false;
+    item['updatedAt'] = DateTime.now().toUtc().toIso8601String();
+    
+    return _ok(item);
+  }
+
+  Map<String, dynamic> _deleteMilestone(Map<String, dynamic> user, String id) {
+    _mockMilestones.removeWhere((item) => item['id'] == id);
+    return _ok(true);
+  }
+
+  Map<String, dynamic> _shiftDate(Map<String, dynamic> user) {
+    final relationship = _relationshipsByUserId[user['id']];
+    final profile = _profilesByUserId[user['id']];
+    
+    String? currentDateString = relationship != null 
+      ? relationship['relationshipStartDate']?.toString()
+      : (profile != null ? profile['relationshipStartDate']?.toString() : null);
+      
+    currentDateString ??= DateTime.now().toUtc().toIso8601String();
+    
+    final currentDate = DateTime.parse(currentDateString);
+    final newDate = currentDate.subtract(const Duration(days: 1));
+    final newDateString = newDate.toUtc().toIso8601String();
+    
+    if (relationship != null) {
+      relationship['relationshipStartDate'] = newDateString;
+    }
+    
+    // Always upsert to profile for safety
+    if (profile != null) {
+      profile['relationshipStartDate'] = newDateString;
+    } else {
+      _profilesByUserId[user['id']] = {
+        'userId': user['id'],
+        'displayName': 'Partner',
+        'relationshipStartDate': newDateString,
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      };
+    }
+    
+    return _ok({'newStartDate': newDateString});
+  }
 }
