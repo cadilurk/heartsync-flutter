@@ -163,6 +163,9 @@ class StoreService {
     required List<CartItem> items,
     required bool isGift,
     String? giftMessage,
+    String? shippingName,
+    String? shippingPhone,
+    String? shippingAddress,
   }) async {
     if (ApiConstants.useMockApi) {
       await Future.delayed(const Duration(milliseconds: 800));
@@ -175,6 +178,9 @@ class StoreService {
         isGift: isGift,
         status: isGift ? 'Đã gửi tặng' : 'Đã thanh toán',
         giftMessage: giftMessage,
+        shippingName: shippingName,
+        shippingPhone: shippingPhone,
+        shippingAddress: shippingAddress,
       );
       _mockOrders.insert(0, order);
       return order;
@@ -184,6 +190,9 @@ class StoreService {
       'items': items.map((item) => item.toJson()).toList(),
       'isGift': isGift,
       'giftMessage': giftMessage,
+      'shippingName': shippingName,
+      'shippingPhone': shippingPhone,
+      'shippingAddress': shippingAddress,
     };
 
     try {

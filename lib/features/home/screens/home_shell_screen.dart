@@ -11,6 +11,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/milestone_provider.dart';
 import '../models/milestone.dart';
 import 'milestone_dialog.dart';
+import 'challenges_screen.dart';
 
 import '../../alarm/providers/alarm_provider.dart';
 import '../../space/screens/space_screen.dart';
@@ -63,7 +64,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> with WidgetsBindingOb
       const AlarmScreen(),
       const _GuardedCoupleTab(title: 'Heart Map', icon: Icons.map_outlined),
       const SpaceScreen(),
-      const _GuardedCoupleTab(title: 'Challenges', icon: Icons.emoji_events_outlined),
+      const ChallengesScreen(),
       const StoreScreen(),
       const AccountScreen(),
     ];

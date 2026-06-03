@@ -113,6 +113,21 @@ export default function createStoreRouter(db, auth, ok, fail) {
           isDigital: false,
           inStock: 8,
           soldCount: 29
+        },
+        {
+          id: 'p_revival',
+          name: 'Bình Nước Hồi Sinh (Thú Cưng)',
+          description: 'Bình nước phép thuật dùng để hồi sinh và rã đông thú cưng ảo của bạn ngay lập tức, phục hồi 100% độ hạnh phúc.',
+          price: 20000,
+          imageUrl: 'https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?q=80&w=600',
+          images: [
+            'https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?q=80&w=600'
+          ],
+          rating: 5.0,
+          category: 'Vật phẩm số',
+          isDigital: true,
+          inStock: 9999,
+          soldCount: 15
         }
       ];
       await products.insertMany(mockProductsList);
@@ -157,7 +172,7 @@ export default function createStoreRouter(db, auth, ok, fail) {
 
   // POST /orders - Tạo đơn hàng thanh toán hoặc gửi quà qua cổng PayOS
   router.post('/orders', auth, async (req, res) => {
-    const { items, isGift, giftMessage } = req.body;
+    const { items, isGift, giftMessage, shippingName, shippingPhone, shippingAddress } = req.body;
     if (!items || !Array.isArray(items) || items.length === 0) {
       const error = fail('INVALID_INPUT');
       return res.status(error.status).json(error.body);
@@ -223,6 +238,9 @@ export default function createStoreRouter(db, auth, ok, fail) {
       isGift: isGift || false,
       status: status,
       giftMessage: giftMessage || null,
+      shippingName: shippingName || null,
+      shippingPhone: shippingPhone || null,
+      shippingAddress: shippingAddress || null,
       checkoutUrl: paymentLink.checkoutUrl,
       qrCode: paymentLink.qrCode || null,
       accountNumber: paymentLink.accountNumber || null,
