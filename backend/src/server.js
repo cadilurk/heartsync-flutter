@@ -60,12 +60,16 @@ const relationships = db.collection('coupleRelationships');
 const pairingCodes = db.collection('pairingCodes');
 const signals = db.collection('signals');
 const milestones = db.collection('milestones');
+const heartLocations = db.collection('heartLocations');
+const heartLocationHistory = db.collection('heartLocationHistory');
 
 await users.createIndex({ email: 1 }, { unique: true });
 await pairingCodes.createIndex({ code: 1 }, { unique: true });
 await pairingCodes.createIndex({ expiredAt: 1 }, { expireAfterSeconds: 3600 });
 await signals.createIndex({ toUserId: 1, readAt: 1 });
 await signals.createIndex({ sentAt: -1 });
+await heartLocations.createIndex({ relationshipId: 1, userId: 1 }, { unique: true });
+await heartLocationHistory.createIndex({ relationshipId: 1, recordedAt: -1 });
 
 function ok(data) {
   return { success: true, data, error: null };
@@ -893,6 +897,148 @@ app.delete('/milestones/:id', auth, async (req, res) => {
     return res.status(serverError.status).json(serverError.body);
   }
 });
+
+app.get('/heart-map', auth, async (req, res) => {
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    if (!relationship) {
+      const error = fail('RELATIONSHIP_NOT_FOUND', 404);
+      return res.status(error.status).json(error.body);
+    }
+
+    const partnerId = String(relationship.userAId) === String(req.user._id)
+      ? relationship.userBId
+      : relationship.userAId;
+    const [selfLocation, partnerLocation, history] = await Promise.all([
+      heartLocations.findOne({ relationshipId: relationship._id, userId: req.user._id }),
+      heartLocations.findOne({ relationshipId: relationship._id, userId: partnerId }),
+      heartLocationHistory
+        .find({ relationshipId: relationship._id })
+        .sort({ recordedAt: -1 })
+        .limit(40)
+        .toArray()
+    ]);
+
+    const distanceMeters = selfLocation && partnerLocation
+      ? distanceBetweenMeters(selfLocation, partnerLocation)
+      : null;
+
+    return res.json(ok({
+      relationshipId: relationship._id.toString(),
+      self: serializeHeartLocation(selfLocation),
+      partner: serializeHeartLocation(partnerLocation),
+      distanceMeters,
+      status: heartDistanceStatus(distanceMeters),
+      history: history.map(serializeHeartLocation)
+    }));
+  } catch (error) {
+    console.error('Error fetching heart map:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+app.post('/heart-map/location', auth, async (req, res) => {
+  try {
+    const latitude = Number(req.body.latitude);
+    const longitude = Number(req.body.longitude);
+    const accuracy = req.body.accuracy == null ? null : Number(req.body.accuracy);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+        latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      const error = fail('INVALID_INPUT');
+      return res.status(error.status).json(error.body);
+    }
+
+    const relationship = await activeRelationshipFor(req.user._id);
+    if (!relationship) {
+      const error = fail('RELATIONSHIP_NOT_FOUND', 404);
+      return res.status(error.status).json(error.body);
+    }
+
+    const partnerId = String(relationship.userAId) === String(req.user._id)
+      ? relationship.userBId
+      : relationship.userAId;
+    const now = new Date();
+    const location = {
+      relationshipId: relationship._id,
+      userId: req.user._id,
+      latitude,
+      longitude,
+      accuracy,
+      recordedAt: now,
+      updatedAt: now
+    };
+
+    await heartLocations.updateOne(
+      { relationshipId: relationship._id, userId: req.user._id },
+      { $set: location, $setOnInsert: { createdAt: now } },
+      { upsert: true }
+    );
+    await heartLocationHistory.insertOne(location);
+
+    const [selfLocation, partnerLocation, history] = await Promise.all([
+      heartLocations.findOne({ relationshipId: relationship._id, userId: req.user._id }),
+      heartLocations.findOne({ relationshipId: relationship._id, userId: partnerId }),
+      heartLocationHistory
+        .find({ relationshipId: relationship._id })
+        .sort({ recordedAt: -1 })
+        .limit(40)
+        .toArray()
+    ]);
+
+    const distanceMeters = selfLocation && partnerLocation
+      ? distanceBetweenMeters(selfLocation, partnerLocation)
+      : null;
+
+    return res.json(ok({
+      relationshipId: relationship._id.toString(),
+      self: serializeHeartLocation(selfLocation),
+      partner: serializeHeartLocation(partnerLocation),
+      distanceMeters,
+      status: heartDistanceStatus(distanceMeters),
+      history: history.map(serializeHeartLocation)
+    }));
+  } catch (error) {
+    console.error('Error updating heart map location:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+function serializeHeartLocation(location) {
+  if (!location) return null;
+  return {
+    id: location._id?.toString?.() ?? null,
+    relationshipId: location.relationshipId?.toString?.() ?? null,
+    userId: location.userId?.toString?.() ?? null,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    accuracy: location.accuracy ?? null,
+    recordedAt: location.recordedAt?.toISOString?.() ?? location.recordedAt,
+    updatedAt: location.updatedAt?.toISOString?.() ?? location.updatedAt
+  };
+}
+
+function distanceBetweenMeters(a, b) {
+  const earthRadiusMeters = 6371000;
+  const lat1 = toRadians(a.latitude);
+  const lat2 = toRadians(b.latitude);
+  const deltaLat = toRadians(b.latitude - a.latitude);
+  const deltaLng = toRadians(b.longitude - a.longitude);
+  const h = Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  return Math.round(earthRadiusMeters * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
+}
+
+function toRadians(value) {
+  return value * Math.PI / 180;
+}
+
+function heartDistanceStatus(distanceMeters) {
+  if (distanceMeters == null) return 'unknown';
+  return distanceMeters <= 1000 ? 'near' : 'far';
+}
 
 app.use((_req, res) => {
   const error = fail('SERVER_ERROR', 404);

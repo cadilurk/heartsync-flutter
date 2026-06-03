@@ -8,6 +8,7 @@ import '../../../core/network/api_client.dart';
 import '../../account/screens/account_screen.dart';
 import '../../alarm/screens/alarm_screen.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../heart_map/screens/heart_map_screen.dart';
 import '../providers/milestone_provider.dart';
 import '../models/milestone.dart';
 import 'milestone_dialog.dart';
@@ -62,7 +63,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> with WidgetsBindingOb
     final pages = [
       const _HomeTab(),
       const AlarmScreen(),
-      const _GuardedCoupleTab(title: 'Heart Map', icon: Icons.map_outlined),
+      const HeartMapScreen(),
       const SpaceScreen(),
       const ChallengesScreen(),
       const StoreScreen(),
