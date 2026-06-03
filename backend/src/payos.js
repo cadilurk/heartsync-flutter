@@ -1,18 +1,11 @@
-import PayOS from '@payos/node';
+import { PayOS } from '@payos/node';
 
 // =========================================================================
 // THÔNG TIN API CREDENTIALS CỦA CỔNG THANH TOÁN PAYOS
-// Bạn hãy thay thế các chuỗi "YOUR_..." bên dưới bằng thông tin thật của bạn,
-// hoặc tốt nhất là cấu hình chúng trong file backend/.env
+// @payos/node v2.x tự đọc các biến môi trường:
+//   PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY
+// Đảm bảo các giá trị này đã được đặt trong file backend/.env
 // =========================================================================
-const PAYOS_CLIENT_ID = process.env.PAYOS_CLIENT_ID;
-const PAYOS_API_KEY = process.env.PAYOS_API_KEY;
-const PAYOS_CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY;
-
-const payOS = new PayOS(
-  PAYOS_CLIENT_ID,
-  PAYOS_API_KEY,
-  PAYOS_CHECKSUM_KEY
-);
+const payOS = new PayOS();
 
 export default payOS;
