@@ -509,7 +509,7 @@ class _StoreScreenState extends State<StoreScreen> {
                                                 children: [
                                                   // Price
                                                   Text(
-                                                    '${product.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{3})(?=\d)'), (Match m) => '${m[1]}.')}đ',
+                                                    '${product.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')}đ',
                                                     style: const TextStyle(
                                                       color: AppColors.active,
                                                       fontWeight: FontWeight.w900,
