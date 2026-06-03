@@ -8,6 +8,7 @@ import '../../../core/network/api_client.dart';
 import '../../account/screens/account_screen.dart';
 import '../../alarm/screens/alarm_screen.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../heart_map/screens/heart_map_screen.dart';
 import '../providers/milestone_provider.dart';
 import '../models/milestone.dart';
 import 'milestone_dialog.dart';
@@ -23,7 +24,8 @@ class HomeShellScreen extends StatefulWidget {
   State<HomeShellScreen> createState() => _HomeShellScreenState();
 }
 
-class _HomeShellScreenState extends State<HomeShellScreen> with WidgetsBindingObserver {
+class _HomeShellScreenState extends State<HomeShellScreen>
+    with WidgetsBindingObserver {
   int _index = 0;
 
   @override
@@ -61,9 +63,12 @@ class _HomeShellScreenState extends State<HomeShellScreen> with WidgetsBindingOb
     final pages = [
       const _HomeTab(),
       const AlarmScreen(),
-      const _GuardedCoupleTab(title: 'Heart Map', icon: Icons.map_outlined),
+      const HeartMapScreen(),
       const SpaceScreen(),
-      const _GuardedCoupleTab(title: 'Challenges', icon: Icons.emoji_events_outlined),
+      const _GuardedCoupleTab(
+        title: 'Challenges',
+        icon: Icons.emoji_events_outlined,
+      ),
       const StoreScreen(),
       const AccountScreen(),
     ];
@@ -166,10 +171,12 @@ class _HomeTabState extends State<_HomeTab> {
             null,
             (json) => json as Map<String, dynamic>,
           );
-          
+
           if (mounted) {
             // Tải lại session mới nhất từ database (ngày kỉ niệm đã lùi về quá khứ 1 ngày)
-            await context.read<AuthProvider>().refreshSession(notifyLoading: false);
+            await context.read<AuthProvider>().refreshSession(
+              notifyLoading: false,
+            );
           }
         } catch (e) {
           debugPrint('Error shifting anniversary date: $e');
@@ -186,8 +193,18 @@ class _HomeTabState extends State<_HomeTab> {
 
   String _formatDate(DateTime date) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day.toString().padLeft(2, '0')}, ${date.year}';
   }
@@ -206,14 +223,19 @@ class _HomeTabState extends State<_HomeTab> {
     final session = context.watch<AuthProvider>().session;
     final milestoneProvider = context.watch<MilestoneProvider>();
 
-    final startDate = session.relationship?.relationshipStartDate ??
+    final startDate =
+        session.relationship?.relationshipStartDate ??
         session.profile?.relationshipStartDate ??
         DateTime.now();
     final totalDays = DateTime.now().difference(startDate).inDays.abs();
 
     // Tính toán số lượng kỉ niệm và thử thách đã hoàn thành từ dữ liệu thật
-    final memoriesCount = milestoneProvider.milestones.where((m) => m.type == 'memory').length;
-    final challengesCount = milestoneProvider.milestones.where((m) => m.type == 'challenge' && m.isCompleted).length;
+    final memoriesCount = milestoneProvider.milestones
+        .where((m) => m.type == 'memory')
+        .length;
+    final challengesCount = milestoneProvider.milestones
+        .where((m) => m.type == 'challenge' && m.isCompleted)
+        .length;
 
     return RefreshIndicator(
       onRefresh: () => context.read<MilestoneProvider>().loadMilestones(),
@@ -231,10 +253,14 @@ class _HomeTabState extends State<_HomeTab> {
                   color: const Color(0xFFF35C9B).withValues(alpha: 0.3),
                   blurRadius: 15,
                   offset: const Offset(0, 8),
-                )
+                ),
               ],
               gradient: const LinearGradient(
-                colors: [Color(0xFFEE5AA6), Color(0xFFF85787), Color(0xFFA63EE8)],
+                colors: [
+                  Color(0xFFEE5AA6),
+                  Color(0xFFF85787),
+                  Color(0xFFA63EE8),
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -242,11 +268,7 @@ class _HomeTabState extends State<_HomeTab> {
             child: Column(
               children: [
                 // Heart Icon
-                const Icon(
-                  Icons.favorite,
-                  color: Colors.white,
-                  size: 80,
-                ),
+                const Icon(Icons.favorite, color: Colors.white, size: 80),
                 const SizedBox(height: 16),
                 const Text(
                   "We've been together for",
@@ -296,7 +318,7 @@ class _HomeTabState extends State<_HomeTab> {
                         color: Colors.grey.shade100,
                         blurRadius: 10,
                         offset: const Offset(0, 4),
-                      )
+                      ),
                     ],
                   ),
                   child: Column(
@@ -304,7 +326,11 @@ class _HomeTabState extends State<_HomeTab> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.auto_awesome, color: Colors.orange, size: 20),
+                          const Icon(
+                            Icons.auto_awesome,
+                            color: Colors.orange,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             'Challenges',
@@ -350,7 +376,7 @@ class _HomeTabState extends State<_HomeTab> {
                         color: Colors.grey.shade100,
                         blurRadius: 10,
                         offset: const Offset(0, 4),
-                      )
+                      ),
                     ],
                   ),
                   child: Column(
@@ -358,7 +384,11 @@ class _HomeTabState extends State<_HomeTab> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.favorite, color: Colors.redAccent, size: 20),
+                          const Icon(
+                            Icons.favorite,
+                            color: Colors.redAccent,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             'Memories',
@@ -399,7 +429,11 @@ class _HomeTabState extends State<_HomeTab> {
           // 3. Section Header
           Row(
             children: [
-              const Icon(Icons.calendar_month, color: Color(0xFFF35C9B), size: 22),
+              const Icon(
+                Icons.calendar_month,
+                color: Color(0xFFF35C9B),
+                size: 22,
+              ),
               const SizedBox(width: 10),
               Text(
                 'Important Milestones',
@@ -414,10 +448,13 @@ class _HomeTabState extends State<_HomeTab> {
           const SizedBox(height: 12),
 
           // 4. Milestone List
-          if (milestoneProvider.isLoading && milestoneProvider.milestones.isEmpty)
+          if (milestoneProvider.isLoading &&
+              milestoneProvider.milestones.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 36),
-              child: Center(child: CircularProgressIndicator(color: AppColors.active)),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.active),
+              ),
             )
           else if (milestoneProvider.milestones.isEmpty)
             Container(
@@ -428,11 +465,18 @@ class _HomeTabState extends State<_HomeTab> {
               ),
               child: Column(
                 children: const [
-                  Icon(Icons.hourglass_empty_outlined, color: Colors.grey, size: 36),
+                  Icon(
+                    Icons.hourglass_empty_outlined,
+                    color: Colors.grey,
+                    size: 36,
+                  ),
                   SizedBox(height: 12),
                   Text(
                     'Chưa có cột mốc nào được tạo.',
-                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey,
+                    ),
                   ),
                   SizedBox(height: 4),
                   Text(
@@ -463,7 +507,7 @@ class _HomeTabState extends State<_HomeTab> {
                           color: Colors.grey.shade100,
                           blurRadius: 8,
                           offset: const Offset(0, 3),
-                        )
+                        ),
                       ],
                     ),
                     child: Row(
@@ -482,7 +526,11 @@ class _HomeTabState extends State<_HomeTab> {
                             style: const TextStyle(
                               fontSize: 22,
                               fontFamily: 'Apple Color Emoji',
-                              fontFamilyFallback: ['Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji'],
+                              fontFamilyFallback: [
+                                'Segoe UI Emoji',
+                                'Noto Color Emoji',
+                                'Android Emoji',
+                              ],
                             ),
                           ),
                         ),
@@ -513,24 +561,33 @@ class _HomeTabState extends State<_HomeTab> {
                                   ),
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: milestone.type == 'challenge'
                                           ? (milestone.isCompleted
-                                              ? Colors.green.shade50
-                                              : Colors.orange.shade50)
-                                          : Colors.pink.shade50.withValues(alpha: 0.5),
+                                                ? Colors.green.shade50
+                                                : Colors.orange.shade50)
+                                          : Colors.pink.shade50.withValues(
+                                              alpha: 0.5,
+                                            ),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       milestone.type == 'challenge'
-                                          ? (milestone.isCompleted ? 'Thử thách ✓' : 'Thử thách')
+                                          ? (milestone.isCompleted
+                                                ? 'Thử thách ✓'
+                                                : 'Thử thách')
                                           : 'Kỉ niệm',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                         color: milestone.type == 'challenge'
-                                            ? (milestone.isCompleted ? Colors.green.shade700 : Colors.orange.shade700)
+                                            ? (milestone.isCompleted
+                                                  ? Colors.green.shade700
+                                                  : Colors.orange.shade700)
                                             : AppColors.active,
                                       ),
                                     ),
@@ -559,7 +616,9 @@ class _HomeTabState extends State<_HomeTab> {
           ElevatedButton(
             onPressed: () => _showMilestoneDialog(),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF35C9B), // Matching the pink button in the screenshot
+              backgroundColor: const Color(
+                0xFFF35C9B,
+              ), // Matching the pink button in the screenshot
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -586,10 +645,7 @@ class _GuardedCoupleTab extends StatelessWidget {
   final String title;
   final IconData icon;
 
-  const _GuardedCoupleTab({
-    required this.title,
-    required this.icon,
-  });
+  const _GuardedCoupleTab({required this.title, required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -601,7 +657,10 @@ class _GuardedCoupleTab extends StatelessWidget {
           children: [
             Icon(icon, size: 56, color: AppColors.active),
             const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: 8),
             const Text(
               'Dev khác có thể build tiếp tính năng này bằng currentUser, partner và relationship từ AuthProvider.',
@@ -613,4 +672,3 @@ class _GuardedCoupleTab extends StatelessWidget {
     );
   }
 }
-
