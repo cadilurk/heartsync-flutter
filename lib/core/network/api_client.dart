@@ -136,6 +136,8 @@ class MockApiBackend {
   final Map<String, Map<String, dynamic>> _profilesByUserId = {};
   final Map<String, Map<String, dynamic>> _relationshipsByUserId = {};
   final Map<String, Map<String, dynamic>> _pairingCodes = {};
+  final Map<String, Map<String, dynamic>> _heartLocationsByUserId = {};
+  final List<Map<String, dynamic>> _heartLocationHistory = [];
 
   final List<Map<String, dynamic>> _mockMilestones = [
     {
@@ -222,6 +224,10 @@ class MockApiBackend {
     if (method == 'POST' && path == '/pairing/connect') return _connect(user, body ?? {});
     if (method == 'GET' && path == '/pairing/status') return _pairingStatus(user);
     if (method == 'DELETE' && path == '/pairing/disconnect') return _disconnect(user);
+    if (method == 'GET' && path == '/heart-map') return _heartMapSnapshot(user);
+    if (method == 'POST' && path == '/heart-map/location') {
+      return _updateHeartLocation(user, body ?? {});
+    }
 
     // Milestones routes
     if (method == 'GET' && path == '/milestones') return _getMilestones(user);
@@ -398,6 +404,88 @@ class MockApiBackend {
     _relationshipsByUserId.remove(relationship['userAId']);
     _relationshipsByUserId.remove(relationship['userBId']);
     return _ok(true);
+  }
+
+  Map<String, dynamic> _heartMapSnapshot(Map<String, dynamic> user) {
+    final relationship = _relationshipsByUserId[user['id']];
+    if (relationship == null) return _error('RELATIONSHIP_NOT_FOUND');
+    return _ok(_heartMapPayload(user, relationship));
+  }
+
+  Map<String, dynamic> _updateHeartLocation(Map<String, dynamic> user, Map<String, dynamic> body) {
+    final relationship = _relationshipsByUserId[user['id']];
+    if (relationship == null) return _error('RELATIONSHIP_NOT_FOUND');
+
+    final latitude = (body['latitude'] as num?)?.toDouble();
+    final longitude = (body['longitude'] as num?)?.toDouble();
+    final accuracy = (body['accuracy'] as num?)?.toDouble();
+    if (latitude == null ||
+        longitude == null ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      return _error('INVALID_INPUT');
+    }
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    final item = {
+      'id': 'loc_${user['id']}_${DateTime.now().millisecondsSinceEpoch}',
+      'relationshipId': relationship['id'],
+      'userId': user['id'],
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': accuracy,
+      'recordedAt': now,
+      'updatedAt': now,
+    };
+    _heartLocationsByUserId[user['id'] as String] = item;
+    _heartLocationHistory.insert(0, item);
+    return _ok(_heartMapPayload(user, relationship));
+  }
+
+  Map<String, dynamic> _heartMapPayload(
+    Map<String, dynamic> user,
+    Map<String, dynamic> relationship,
+  ) {
+    final partnerId = relationship['userAId'] == user['id']
+        ? relationship['userBId'] as String
+        : relationship['userAId'] as String;
+    final self = _heartLocationsByUserId[user['id']];
+    final partner = _heartLocationsByUserId[partnerId];
+    final distanceMeters = self != null && partner != null
+        ? _distanceMeters(
+            self['latitude'] as double,
+            self['longitude'] as double,
+            partner['latitude'] as double,
+            partner['longitude'] as double,
+          )
+        : null;
+    final relationshipId = relationship['id'];
+    final history = _heartLocationHistory
+        .where((item) => item['relationshipId'] == relationshipId)
+        .take(40)
+        .toList();
+
+    return {
+      'relationshipId': relationshipId,
+      'self': self,
+      'partner': partner,
+      'distanceMeters': distanceMeters,
+      'status': distanceMeters == null ? 'unknown' : (distanceMeters <= 1000 ? 'near' : 'far'),
+      'history': history,
+    };
+  }
+
+  int _distanceMeters(double lat1, double lng1, double lat2, double lng2) {
+    const earthRadiusMeters = 6371000;
+    final phi1 = lat1 * pi / 180;
+    final phi2 = lat2 * pi / 180;
+    final deltaPhi = (lat2 - lat1) * pi / 180;
+    final deltaLambda = (lng2 - lng1) * pi / 180;
+    final h = sin(deltaPhi / 2) * sin(deltaPhi / 2) +
+        cos(phi1) * cos(phi2) * sin(deltaLambda / 2) * sin(deltaLambda / 2);
+    return (earthRadiusMeters * 2 * atan2(sqrt(h), sqrt(1 - h))).round();
   }
 
   Map<String, dynamic>? _userFromToken(String? token) {

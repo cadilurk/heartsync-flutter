@@ -11,6 +11,8 @@ import '../features/alarm/providers/alarm_provider.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/auth/providers/current_user_provider.dart';
 import '../features/auth/services/auth_service.dart';
+import '../features/heart_map/providers/heart_map_provider.dart';
+import '../features/heart_map/services/heart_map_service.dart';
 import '../features/home/providers/milestone_provider.dart';
 import '../features/home/services/milestone_service.dart';
 import '../features/home/providers/pet_provider.dart';
@@ -34,80 +36,120 @@ class HeartSyncApp extends StatelessWidget {
       providers: [
         Provider(create: (_) => TokenStorage()),
         ProxyProvider<TokenStorage, ApiClient>(
-          update: (_, storage, previous) => previous ?? ApiClient(
-            tokenStorage: storage,
-            baseUrl: ApiConstants.resolveBaseUrl(),
-          ),
+          update: (_, storage, previous) =>
+              previous ??
+              ApiClient(
+                tokenStorage: storage,
+                baseUrl: ApiConstants.resolveBaseUrl(),
+              ),
         ),
         ProxyProvider<ApiClient, AuthService>(
-          update: (_, apiClient, previous) => previous ?? AuthService(apiClient),
+          update: (_, apiClient, previous) =>
+              previous ?? AuthService(apiClient),
         ),
         ProxyProvider<ApiClient, AccountService>(
-          update: (_, apiClient, previous) => previous ?? AccountService(apiClient),
+          update: (_, apiClient, previous) =>
+              previous ?? AccountService(apiClient),
         ),
         ProxyProvider<ApiClient, PairingService>(
-          update: (_, apiClient, previous) => previous ?? PairingService(apiClient),
+          update: (_, apiClient, previous) =>
+              previous ?? PairingService(apiClient),
         ),
         ProxyProvider<ApiClient, SignalService>(
-          update: (_, apiClient, previous) => previous ?? SignalService(apiClient),
+          update: (_, apiClient, previous) =>
+              previous ?? SignalService(apiClient),
         ),
         ProxyProvider<ApiClient, MilestoneService>(
-          update: (_, apiClient, previous) => previous ?? MilestoneService(apiClient),
+          update: (_, apiClient, previous) =>
+              previous ?? MilestoneService(apiClient),
+        ),
+        ProxyProvider<ApiClient, HeartMapService>(
+          update: (_, apiClient, previous) =>
+              previous ?? HeartMapService(apiClient),
         ),
         ProxyProvider<ApiClient, StoreService>(
-          update: (_, apiClient, previous) => previous ?? StoreService(apiClient),
+          update: (_, apiClient, previous) =>
+              previous ?? StoreService(apiClient),
         ),
         ProxyProvider<ApiClient, SpaceService>(
-          update: (_, apiClient, previous) => previous ?? SpaceService(apiClient),
+          update: (_, apiClient, previous) =>
+              previous ?? SpaceService(apiClient),
         ),
         ProxyProvider<ApiClient, PetService>(
           update: (_, apiClient, previous) => previous ?? PetService(apiClient),
         ),
-        ChangeNotifierProxyProvider3<AuthService, AccountService, TokenStorage, AuthProvider>(
+        ChangeNotifierProxyProvider3<
+          AuthService,
+          AccountService,
+          TokenStorage,
+          AuthProvider
+        >(
           create: (context) => AuthProvider(
             authService: context.read<AuthService>(),
             accountService: context.read<AccountService>(),
             tokenStorage: context.read<TokenStorage>(),
             apiClient: context.read<ApiClient>(),
           ),
-          update: (context, authService, accountService, tokenStorage, previous) =>
-              previous ??
-              AuthProvider(
-                authService: authService,
-                accountService: accountService,
-                tokenStorage: tokenStorage,
-                apiClient: context.read<ApiClient>(),
-              ),
+          update:
+              (context, authService, accountService, tokenStorage, previous) =>
+                  previous ??
+                  AuthProvider(
+                    authService: authService,
+                    accountService: accountService,
+                    tokenStorage: tokenStorage,
+                    apiClient: context.read<ApiClient>(),
+                  ),
         ),
         ChangeNotifierProvider(create: (_) => CurrentUserProvider()),
-        ChangeNotifierProxyProvider2<AccountService, AuthProvider, AccountProvider>(
+        ChangeNotifierProxyProvider2<
+          AccountService,
+          AuthProvider,
+          AccountProvider
+        >(
           create: (context) => AccountProvider(
             accountService: context.read<AccountService>(),
             authProvider: context.read<AuthProvider>(),
           ),
           update: (_, accountService, authProvider, previous) =>
               previous ??
-              AccountProvider(accountService: accountService, authProvider: authProvider),
+              AccountProvider(
+                accountService: accountService,
+                authProvider: authProvider,
+              ),
         ),
-        ChangeNotifierProxyProvider2<PairingService, AuthProvider, PairingProvider>(
+        ChangeNotifierProxyProvider2<
+          PairingService,
+          AuthProvider,
+          PairingProvider
+        >(
           create: (context) => PairingProvider(
             pairingService: context.read<PairingService>(),
             authProvider: context.read<AuthProvider>(),
           ),
           update: (_, pairingService, authProvider, previous) =>
               previous ??
-              PairingProvider(pairingService: pairingService, authProvider: authProvider),
+              PairingProvider(
+                pairingService: pairingService,
+                authProvider: authProvider,
+              ),
         ),
         ChangeNotifierProxyProvider<StoreService, StoreProvider>(
-          create: (context) => StoreProvider(storeService: context.read<StoreService>()),
+          create: (context) =>
+              StoreProvider(storeService: context.read<StoreService>()),
           update: (_, storeService, previous) =>
               previous ?? StoreProvider(storeService: storeService),
         ),
         ChangeNotifierProvider(
-          create: (context) => SpaceProvider(spaceService: context.read<SpaceService>()),
+          create: (context) =>
+              SpaceProvider(spaceService: context.read<SpaceService>()),
         ),
         ChangeNotifierProvider(create: (_) => SocketService()),
-        ChangeNotifierProxyProvider3<SocketService, AuthProvider, SignalService, AlarmProvider>(
+        ChangeNotifierProxyProvider3<
+          SocketService,
+          AuthProvider,
+          SignalService,
+          AlarmProvider
+        >(
           create: (context) => AlarmProvider(
             socketService: context.read<SocketService>(),
             authProvider: context.read<AuthProvider>(),
@@ -129,11 +171,16 @@ class HeartSyncApp extends StatelessWidget {
               previous ?? MilestoneProvider(milestoneService: milestoneService),
         ),
         ChangeNotifierProxyProvider<PetService, PetProvider>(
-          create: (context) => PetProvider(
-            petService: context.read<PetService>(),
-          ),
+          create: (context) =>
+              PetProvider(petService: context.read<PetService>()),
           update: (_, petService, previous) =>
               previous ?? PetProvider(petService: petService),
+        ),
+        ChangeNotifierProxyProvider<HeartMapService, HeartMapProvider>(
+          create: (context) =>
+              HeartMapProvider(service: context.read<HeartMapService>()),
+          update: (_, heartMapService, previous) =>
+              previous ?? HeartMapProvider(service: heartMapService),
         ),
       ],
       child: Consumer<AuthProvider>(

@@ -28,6 +28,8 @@
 	<string>HeartSync needs camera access so you can capture memories in Heart Space.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>HeartSync needs microphone access when recording videos for Heart Space.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>HeartSync needs your location to show distance in Heart Map.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>HeartSync needs photo library access so you can choose memories for Heart Space.</string>
 	<key>LSRequiresIPhoneOS</key>
