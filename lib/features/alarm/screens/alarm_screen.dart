@@ -106,7 +106,6 @@ class _AlarmScreenState extends State<AlarmScreen>
   late final AnimationController _pulseCtrl;
   late final Animation<double> _idleAnim;
   late final Animation<double> _beatAnim;
-  late final AlarmProvider _alarmProvider;
 
   bool _wasReceiving = false;
 
@@ -126,11 +125,11 @@ class _AlarmScreenState extends State<AlarmScreen>
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
 
-    _alarmProvider = context.read<AlarmProvider>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _alarmProvider.startShakeDetection();
-      _alarmProvider.onPartnerOfflineCallback = _showOfflineSnackbar;
+      final alarm = context.read<AlarmProvider>();
+      alarm.startShakeDetection();
+      alarm.onPartnerOfflineCallback = _showOfflineSnackbar;
     });
   }
 
@@ -171,8 +170,9 @@ class _AlarmScreenState extends State<AlarmScreen>
   @override
   void dispose() {
     _pulseCtrl.dispose();
-    _alarmProvider.stopShakeDetection();
-    _alarmProvider.onPartnerOfflineCallback = null;
+    final alarm = context.read<AlarmProvider>();
+    alarm.stopShakeDetection();
+    alarm.onPartnerOfflineCallback = null;
     super.dispose();
   }
 
