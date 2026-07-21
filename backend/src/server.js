@@ -798,25 +798,23 @@ app.post('/signals', auth, async (req, res) => {
         const senderName = senderProfile?.displayName || req.user.email.split('@')[0];
 
         try {
+          // DATA-ONLY: không dùng "notification" block → app tự hiện notification
+          // qua NotificationService (cả foreground/background/killed). Nhờ vậy
+          // không lệ thuộc hoàn toàn vào FCM auto-display và không bị trùng với
+          // local notification từ socket (cùng notification id → gộp làm 1).
           const fcmResponse = await firebaseMessaging.sendEachForMulticast({
             tokens: partner.fcmTokens,
-            notification: {
-              title: `${senderName} gửi ${emojis[signalType]}`,
-              body: labels[signalType]
-            },
             data: {
               type: 'heart_alarm',
               signalId: result.insertedId.toString(),
               fromUserId: String(req.user._id),
-              signalType: signalType
+              signalType: signalType,
+              senderName: senderName,
+              title: `${senderName} gửi ${emojis[signalType]}`,
+              body: labels[signalType]
             },
             android: {
-              priority: 'high',
-              notification: {
-                channelId: 'heart_alarm',
-                color: '#EC4899',
-                vibrateTimingsMillis: [0, 500, 200, 500]
-              }
+              priority: 'high'
             }
           });
           console.log(`[FCM] to=${String(partnerId)} tokens=${partner.fcmTokens.length} success=${fcmResponse.successCount} failure=${fcmResponse.failureCount}`);

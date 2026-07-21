@@ -8,6 +8,7 @@ import 'package:vibration/vibration.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../../../core/network/socket_service.dart';
+import '../../../core/notifications/notification_service.dart';
 import '../../../core/notifications/fcm_service.dart';
 import '../../../core/overlay/overlay_manager.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -190,14 +191,20 @@ class AlarmProvider extends ChangeNotifier {
     _lastReceivedSignalType = type;
     notifyListeners();
 
-    // 3. Chỉ khi app đang mở (foreground) mới hiện overlay trong app.
-    //    Khi app ở nền/đã kill: notification hệ thống do FCM (server luôn gửi kèm)
-    //    tự hiện ở khay — KHÔNG bắn local notification ở đây để tránh trùng 2 cái.
+    // 3. LUÔN hiện notification ở khay (thông báo NGOÀI app) — kể cả foreground —
+    //    để chắc chắn thấy. Overlay trong app chỉ là thêm khi đang mở app.
+    //    Dùng chung notificationId theo signalId nên socket + FCM không trùng.
+    final partnerName = _partnerName(_authProvider.session.partner?.email);
+    await NotificationService().showAlarmNotification(
+      partnerName: partnerName,
+      signalType: type.name,
+      signalId: signalId,
+    );
+
     final isForegrounded =
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
 
     if (isForegrounded) {
-      final partnerName = _partnerName(_authProvider.session.partner?.email);
       final partnerInitial = partnerName.isNotEmpty ? partnerName[0].toUpperCase() : '?';
 
       _isShowingOverlay = true;

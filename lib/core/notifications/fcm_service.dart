@@ -1,11 +1,29 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../network/api_client.dart';
+import 'notification_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Background FCM payload handler. No UI code can run here.
-  debugPrint('Handling a background message: ${message.messageId}');
+  // Chạy trong isolate riêng khi app ở nền/đã kill. Vì server gửi data-only,
+  // ở đây phải TỰ hiện notification (không có "notification" block để OS auto-hiện).
+  try {
+    await Firebase.initializeApp();
+    final data = message.data;
+    if (data['type'] == 'heart_alarm') {
+      await NotificationService().initialize();
+      await NotificationService().showAlarmNotification(
+        partnerName: (data['senderName'] as String?)?.trim().isNotEmpty == true
+            ? data['senderName'] as String
+            : 'Partner',
+        signalType: data['signalType'] as String? ?? 'love',
+        signalId: data['signalId'] as String?,
+      );
+    }
+  } catch (e) {
+    debugPrint('Background FCM handler error: $e');
+  }
 }
 
 class FcmService {
