@@ -1,6 +1,7 @@
-// ignore_for_file: prefer_initializing_formals
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/milestone.dart';
+import '../models/song_result.dart';
 import '../services/milestone_service.dart';
 
 class MilestoneProvider with ChangeNotifier {
@@ -10,11 +11,13 @@ class MilestoneProvider with ChangeNotifier {
   String? _errorMessage;
 
   MilestoneProvider({required MilestoneService milestoneService})
-      : _milestoneService = milestoneService;
+    : _milestoneService = milestoneService;
 
   List<Milestone> get milestones => _milestones;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  // ── Load ──────────────────────────────────────────────────────────────────
 
   Future<void> loadMilestones() async {
     _isLoading = true;
@@ -33,29 +36,41 @@ class MilestoneProvider with ChangeNotifier {
     }
   }
 
-  Future<void> addMilestone({
+  // ── Create ────────────────────────────────────────────────────────────────
+
+  Future<Milestone> addMilestone({
     required String title,
     required DateTime date,
     required String icon,
     String type = 'memory',
-    bool isCompleted = false,
+    String? mood,
+    String? songTitle,
+    String? songArtist,
+    String? songPreviewUrl,
+    String? songArtworkUrl,
+    List<MilestoneTask> checklist = const [],
   }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final formattedDate =
-          '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final formattedDate = _fmt(date);
       final newMilestone = await _milestoneService.createMilestone(
         title: title,
         date: formattedDate,
         icon: icon,
         type: type,
-        isCompleted: isCompleted,
+        mood: mood,
+        songTitle: songTitle,
+        songArtist: songArtist,
+        songPreviewUrl: songPreviewUrl,
+        songArtworkUrl: songArtworkUrl,
+        checklist: checklist,
       );
       _milestones.add(newMilestone);
       _sortMilestones();
       _errorMessage = null;
+      return newMilestone;
     } catch (e) {
       _errorMessage = e.toString();
       rethrow;
@@ -64,6 +79,8 @@ class MilestoneProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // ── Edit ──────────────────────────────────────────────────────────────────
 
   Future<void> editMilestone({
     required String id,
@@ -71,27 +88,31 @@ class MilestoneProvider with ChangeNotifier {
     required DateTime date,
     required String icon,
     String type = 'memory',
-    bool isCompleted = false,
+    String? mood,
+    String? songTitle,
+    String? songArtist,
+    String? songPreviewUrl,
+    String? songArtworkUrl,
+    List<MilestoneTask> checklist = const [],
   }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final formattedDate =
-          '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       final updatedMilestone = await _milestoneService.updateMilestone(
         id: id,
         title: title,
-        date: formattedDate,
+        date: _fmt(date),
         icon: icon,
         type: type,
-        isCompleted: isCompleted,
+        mood: mood,
+        songTitle: songTitle,
+        songArtist: songArtist,
+        songPreviewUrl: songPreviewUrl,
+        songArtworkUrl: songArtworkUrl,
+        checklist: checklist,
       );
-      final index = _milestones.indexWhere((item) => item.id == id);
-      if (index != -1) {
-        _milestones[index] = updatedMilestone;
-        _sortMilestones();
-      }
+      _updateLocal(updatedMilestone);
       _errorMessage = null;
     } catch (e) {
       _errorMessage = e.toString();
@@ -101,6 +122,126 @@ class MilestoneProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> updateChecklistTask({
+    required String milestoneId,
+    required String taskId,
+    required bool isDone,
+  }) async {
+    try {
+      final index = _milestones.indexWhere((item) => item.id == milestoneId);
+      Milestone? previous;
+      if (index != -1) {
+        previous = _milestones[index];
+        final updatedTasks = previous.checklist
+            .map(
+              (task) =>
+                  task.id == taskId ? task.copyWith(isDone: isDone) : task,
+            )
+            .toList();
+        _milestones[index] = previous.copyWith(checklist: updatedTasks);
+        notifyListeners();
+      }
+
+      final updated = await _milestoneService.updateChecklistTask(
+        milestoneId: milestoneId,
+        taskId: taskId,
+        isDone: isDone,
+      );
+      _updateLocal(updated);
+      _errorMessage = null;
+    } catch (e) {
+      await loadMilestones();
+      _errorMessage = e.toString();
+      rethrow;
+    }
+  }
+
+  // ── Cover Image ───────────────────────────────────────────────────────────
+
+  Future<List<XFile>> pickCoverImages() {
+    return _milestoneService.pickCoverImages();
+  }
+
+  Future<void> uploadCoverImage({
+    required String milestoneId,
+    required List<XFile> files,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final updated = await _milestoneService.uploadCoverImage(
+        milestoneId: milestoneId,
+        files: files,
+      );
+      _updateLocal(updated);
+      _errorMessage = null;
+    } catch (e) {
+      _errorMessage = e.toString();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── Song Search ───────────────────────────────────────────────────────────
+
+  Future<List<SongResult>> searchSongs(String query) {
+    return _milestoneService.searchSongs(query);
+  }
+
+  // ── Dual Confirmation ─────────────────────────────────────────────────────
+
+  /// Partner responds: 'accept' | 'decline' | 'propose_date'
+  Future<void> respondToMilestone({
+    required String id,
+    required String action,
+    String? proposedDate,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final updated = await _milestoneService.respondToMilestone(
+        id: id,
+        action: action,
+        proposedDate: proposedDate,
+      );
+      _updateLocal(updated);
+      _errorMessage = null;
+    } catch (e) {
+      _errorMessage = e.toString();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Creator confirms or declines partner's proposed date: 'accept' | 'decline'
+  Future<void> confirmMilestone({
+    required String id,
+    required String action,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final updated = await _milestoneService.confirmMilestone(
+        id: id,
+        action: action,
+      );
+      _updateLocal(updated);
+      _errorMessage = null;
+    } catch (e) {
+      _errorMessage = e.toString();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
 
   Future<void> removeMilestone(String id) async {
     _isLoading = true;
@@ -121,7 +262,20 @@ class MilestoneProvider with ChangeNotifier {
     }
   }
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  void _updateLocal(Milestone updated) {
+    final index = _milestones.indexWhere((item) => item.id == updated.id);
+    if (index != -1) {
+      _milestones[index] = updated;
+      _sortMilestones();
+    }
+  }
+
   void _sortMilestones() {
     _milestones.sort((a, b) => a.date.compareTo(b.date));
   }
+
+  String _fmt(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
