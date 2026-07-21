@@ -97,7 +97,7 @@ class _HomeShellScreenState extends State<HomeShellScreen>
           const NavigationDestination(
             icon: Icon(Icons.favorite_border),
             selectedIcon: Icon(Icons.favorite),
-            label: 'Home',
+            label: 'Trang chủ',
           ),
           NavigationDestination(
             icon: Badge(
@@ -110,32 +110,32 @@ class _HomeShellScreenState extends State<HomeShellScreen>
               isLabelVisible: unreadCount > 0,
               child: const Icon(Icons.notifications),
             ),
-            label: 'Alarm',
+            label: 'Báo hiệu',
           ),
           const NavigationDestination(
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map),
-            label: 'Map',
+            label: 'Bản đồ',
           ),
           const NavigationDestination(
             icon: Icon(Icons.image_outlined),
             selectedIcon: Icon(Icons.image),
-            label: 'Space',
+            label: 'Kỷ niệm',
           ),
           const NavigationDestination(
             icon: Icon(Icons.emoji_events_outlined),
             selectedIcon: Icon(Icons.emoji_events),
-            label: 'Challenges',
+            label: 'Thử thách',
           ),
           const NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2),
-            label: 'Store',
+            label: 'Cửa hàng',
           ),
           const NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
-            label: 'Account',
+            label: 'Tài khoản',
           ),
         ],
       ),
