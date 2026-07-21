@@ -453,6 +453,7 @@ class MockApiBackend {
       'profile': _profilesByUserId[user['id']],
       'relationship': relationship,
       'partner': partner == null ? null : _publicUser(partner),
+      'partnerProfile': partnerId == null ? null : _profilesByUserId[partnerId],
     });
   }
 

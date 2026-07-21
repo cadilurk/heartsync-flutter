@@ -8,7 +8,6 @@ import 'package:vibration/vibration.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../../../core/network/socket_service.dart';
-import '../../../core/notifications/notification_service.dart';
 import '../../../core/notifications/fcm_service.dart';
 import '../../../core/overlay/overlay_manager.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -43,6 +42,9 @@ class AlarmProvider extends ChangeNotifier {
 
   final List<Signal> _signalQueue = [];
   bool _isShowingOverlay = false;
+
+  // Khử trùng: cùng 1 signalId có thể tới cả qua socket lẫn FCM → chỉ xử lý 1 lần.
+  final Set<String> _handledSignalIds = {};
 
   AlarmProvider({
     required SocketService socketService,
@@ -165,6 +167,13 @@ class AlarmProvider extends ChangeNotifier {
     DateTime timestamp,
     String? signalType,
   ) async {
+    // 0. Khử trùng socket + FCM cùng 1 tín hiệu
+    if (signalId != null) {
+      if (_handledSignalIds.contains(signalId)) return;
+      _handledSignalIds.add(signalId);
+      if (_handledSignalIds.length > 200) _handledSignalIds.clear();
+    }
+
     // 1. Vibration
     final hasVibrator = await Vibration.hasVibrator();
     if (hasVibrator) {
@@ -181,7 +190,9 @@ class AlarmProvider extends ChangeNotifier {
     _lastReceivedSignalType = type;
     notifyListeners();
 
-    // 3. Foreground -> overlay, background -> notification
+    // 3. Chỉ khi app đang mở (foreground) mới hiện overlay trong app.
+    //    Khi app ở nền/đã kill: notification hệ thống do FCM (server luôn gửi kèm)
+    //    tự hiện ở khay — KHÔNG bắn local notification ở đây để tránh trùng 2 cái.
     final isForegrounded =
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
 
@@ -208,13 +219,6 @@ class AlarmProvider extends ChangeNotifier {
         }
       }
     } else {
-      final partner = _authProvider.session.partner;
-      final partnerName = _partnerName(partner?.email);
-      await NotificationService().showAlarmNotification(
-        partnerName: partnerName,
-        signalType: type.name,
-      );
-
       unreadCount++;
       notifyListeners();
     }

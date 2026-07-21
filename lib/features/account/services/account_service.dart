@@ -43,6 +43,7 @@ class AccountService {
     final profileJson = json['profile'];
     final relationshipJson = json['relationship'];
     final partnerJson = json['partner'];
+    final partnerProfileJson = json['partnerProfile'];
 
     return CurrentUserSession(
       user: userJson is Map<String, dynamic> ? User.fromJson(userJson) : null,
@@ -51,6 +52,9 @@ class AccountService {
           ? CoupleRelationship.fromJson(relationshipJson)
           : null,
       partner: partnerJson is Map<String, dynamic> ? User.fromJson(partnerJson) : null,
+      partnerProfile: partnerProfileJson is Map<String, dynamic>
+          ? Profile.fromJson(partnerProfileJson)
+          : null,
       isAuthenticated: userJson is Map<String, dynamic>,
     );
   }

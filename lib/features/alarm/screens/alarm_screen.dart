@@ -108,6 +108,14 @@ class _AlarmScreenState extends State<AlarmScreen>
   late final Animation<double> _beatAnim;
 
   bool _wasReceiving = false;
+  AlarmProvider? _alarm;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Giữ reference để dùng an toàn trong dispose() (không được context.read ở đó).
+    _alarm = context.read<AlarmProvider>();
+  }
 
   @override
   void initState() {
@@ -170,9 +178,8 @@ class _AlarmScreenState extends State<AlarmScreen>
   @override
   void dispose() {
     _pulseCtrl.dispose();
-    final alarm = context.read<AlarmProvider>();
-    alarm.stopShakeDetection();
-    alarm.onPartnerOfflineCallback = null;
+    _alarm?.stopShakeDetection();
+    _alarm?.onPartnerOfflineCallback = null;
     super.dispose();
   }
 

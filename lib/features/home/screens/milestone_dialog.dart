@@ -191,14 +191,13 @@ class _MilestoneDialogState extends State<MilestoneDialog> {
         ? '${session.profile!.displayName} (Bạn)'
         : 'Bạn';
     final partner = session.partner;
+    final partnerLabel =
+        session.partnerDisplayName ??
+        (partner?.email.isNotEmpty == true ? partner!.email : 'Người ấy');
 
     return [
       (id: currentId, label: currentLabel),
-      if (partner != null)
-        (
-          id: partner.id,
-          label: partner.email.isNotEmpty ? partner.email : 'Người ấy',
-        ),
+      if (partner != null) (id: partner.id, label: partnerLabel),
     ];
   }
 
@@ -1009,6 +1008,7 @@ class _MilestoneDialogState extends State<MilestoneDialog> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: task.assigneeId,
+                  isExpanded: true,
                   decoration: _inputDecoration('Phân công cho ai?').copyWith(
                     isDense: true,
                     prefixIcon: const Icon(

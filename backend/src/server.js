@@ -517,15 +517,17 @@ app.get('/account/me', auth, async (req, res) => {
       ? relationship.userBId
       : relationship.userAId
     : null;
-  const [profile, partner] = await Promise.all([
+  const [profile, partner, partnerProfile] = await Promise.all([
     profiles.findOne({ userId: req.user._id }),
-    partnerId ? users.findOne({ _id: partnerId }) : null
+    partnerId ? users.findOne({ _id: partnerId }) : null,
+    partnerId ? profiles.findOne({ userId: partnerId }) : null
   ]);
   return res.json(ok({
     user: publicUser(req.user),
     profile: serializeProfile(profile),
     relationship: serializeRelationship(relationship),
-    partner: publicUser(partner)
+    partner: publicUser(partner),
+    partnerProfile: serializeProfile(partnerProfile)
   }));
 });
 
@@ -763,6 +765,7 @@ app.post('/signals', auth, async (req, res) => {
 
     const result = await signals.insertOne(signal);
 
+    // 1. Realtime qua socket nếu partner đang online (hiện overlay trong app ngay)
     const partnerSocketId = onlineUsers.get(String(partnerId));
     if (partnerSocketId) {
       io.to(partnerSocketId).emit('alarm:receive', {
@@ -776,49 +779,85 @@ app.post('/signals', auth, async (req, res) => {
         { $set: { deliveredViaSocket: true } }
       );
       signal.deliveredViaSocket = true;
-    } else {
-      if (firebaseMessaging) {
-        const partner = await users.findOne({ _id: partnerId });
-        if (partner && partner.fcmTokens && partner.fcmTokens.length > 0) {
-          const labels = { miss: 'Nhớ em lắm...', care: 'Đang nghĩ đến em', love: 'Yêu em lắm...' };
-          const emojis = { miss: '🥺', care: '🤗', love: '💕' };
-          const senderProfile = await profiles.findOne({ userId: req.user._id });
-          const senderName = senderProfile?.displayName || req.user.email.split('@')[0];
+    }
 
-          try {
-            await firebaseMessaging.sendEachForMulticast({
-              tokens: partner.fcmTokens,
+    // 2. LUÔN gửi FCM song song (dù online hay offline) để chắc chắn nhận được.
+    //    Client khử trùng theo signalId nên socket + FCM cùng 1 tín hiệu chỉ hiện 1 lần.
+    if (!firebaseMessaging) {
+      console.log('[FCM] SKIP: firebaseMessaging chưa khởi tạo (thiếu service account?)');
+    }
+    if (firebaseMessaging) {
+      const partner = await users.findOne({ _id: partnerId });
+      if (!partner || !partner.fcmTokens || partner.fcmTokens.length === 0) {
+        console.log(`[FCM] SKIP: partner ${String(partnerId)} không có fcmTokens nào trong DB`);
+      }
+      if (partner && partner.fcmTokens && partner.fcmTokens.length > 0) {
+        const labels = { miss: 'Nhớ em lắm...', care: 'Đang nghĩ đến em', love: 'Yêu em lắm...' };
+        const emojis = { miss: '🥺', care: '🤗', love: '💕' };
+        const senderProfile = await profiles.findOne({ userId: req.user._id });
+        const senderName = senderProfile?.displayName || req.user.email.split('@')[0];
+
+        try {
+          const fcmResponse = await firebaseMessaging.sendEachForMulticast({
+            tokens: partner.fcmTokens,
+            notification: {
+              title: `${senderName} gửi ${emojis[signalType]}`,
+              body: labels[signalType]
+            },
+            data: {
+              type: 'heart_alarm',
+              signalId: result.insertedId.toString(),
+              fromUserId: String(req.user._id),
+              signalType: signalType
+            },
+            android: {
+              priority: 'high',
               notification: {
-                title: `${senderName} gửi ${emojis[signalType]}`,
-                body: labels[signalType]
-              },
-              data: {
-                type: 'heart_alarm',
-                signalId: result.insertedId.toString(),
-                fromUserId: String(req.user._id),
-                signalType: signalType
-              },
-              android: {
-                priority: 'high',
-                notification: {
-                  channelId: 'heart_alarm',
-                  color: '#EC4899',
-                  vibrateTimingsMillis: [0, 500, 200, 500]
-                }
+                channelId: 'heart_alarm',
+                color: '#EC4899',
+                vibrateTimingsMillis: [0, 500, 200, 500]
               }
-            });
+            }
+          });
+          console.log(`[FCM] to=${String(partnerId)} tokens=${partner.fcmTokens.length} success=${fcmResponse.successCount} failure=${fcmResponse.failureCount}`);
+          fcmResponse.responses.forEach((r, idx) => {
+            if (!r.success) {
+              console.log(`[FCM]   token#${idx} FAILED: ${r.error?.code} — ${r.error?.message}`);
+            }
+          });
+
+          if (fcmResponse.successCount > 0) {
             await signals.updateOne(
               { _id: result.insertedId },
               { $set: { fcmSent: true } }
             );
             signal.fcmSent = true;
-          } catch (fcmError) {
-            console.error('Failed to send FCM notifications:', fcmError);
           }
+
+          // Dọn token chết để lần sau không gửi vào token đã hỏng
+          const staleTokens = [];
+          fcmResponse.responses.forEach((r, idx) => {
+            const code = r.error?.code;
+            if (!r.success && (
+              code === 'messaging/registration-token-not-registered' ||
+              code === 'messaging/invalid-registration-token' ||
+              code === 'messaging/invalid-argument'
+            )) {
+              staleTokens.push(partner.fcmTokens[idx]);
+            }
+          });
+          if (staleTokens.length > 0) {
+            await users.updateOne(
+              { _id: partnerId },
+              { $pull: { fcmTokens: { $in: staleTokens } } }
+            );
+          }
+        } catch (fcmError) {
+          console.error('Failed to send FCM notifications:', fcmError);
         }
       }
     }
-    
+
     return res.json(ok({
       id: result.insertedId.toString(),
       fromUserId: String(signal.fromUserId),
