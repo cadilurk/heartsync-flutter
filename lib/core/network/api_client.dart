@@ -20,13 +20,10 @@ class ApiClient {
     this.baseUrl = ApiConstants.baseUrl,
     http.Client? httpClient,
     MockApiBackend? mockBackend,
-  })  : _httpClient = httpClient ?? http.Client(),
-        _mockBackend = mockBackend ?? MockApiBackend();
+  }) : _httpClient = httpClient ?? http.Client(),
+       _mockBackend = mockBackend ?? MockApiBackend();
 
-  Future<T> get<T>(
-    String path,
-    T Function(Object? json) parseData,
-  ) {
+  Future<T> get<T>(String path, T Function(Object? json) parseData) {
     return _send<T>('GET', path, null, parseData);
   }
 
@@ -76,7 +73,8 @@ class ApiClient {
     final response = ApiResponse<T>.fromJson(json, parseData);
     if (response.success) return response.data as T;
 
-    final error = response.error ??
+    final error =
+        response.error ??
         const ApiException(code: 'SERVER_ERROR', message: 'Server error');
     throw ApiException(
       code: error.code,
@@ -104,19 +102,38 @@ class ApiClient {
         response = await _httpClient.get(uri, headers: headers);
         break;
       case 'POST':
-        response = await _httpClient.post(uri, headers: headers, body: jsonEncode(body ?? {}));
+        response = await _httpClient.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(body ?? {}),
+        );
         break;
       case 'PUT':
-        response = await _httpClient.put(uri, headers: headers, body: jsonEncode(body ?? {}));
+        response = await _httpClient.put(
+          uri,
+          headers: headers,
+          body: jsonEncode(body ?? {}),
+        );
         break;
       case 'PATCH':
-        response = await _httpClient.patch(uri, headers: headers, body: jsonEncode(body ?? {}));
+        response = await _httpClient.patch(
+          uri,
+          headers: headers,
+          body: jsonEncode(body ?? {}),
+        );
         break;
       case 'DELETE':
-        response = await _httpClient.delete(uri, headers: headers, body: jsonEncode(body ?? {}));
+        response = await _httpClient.delete(
+          uri,
+          headers: headers,
+          body: jsonEncode(body ?? {}),
+        );
         break;
       default:
-        throw const ApiException(code: 'SERVER_ERROR', message: 'Unsupported method');
+        throw const ApiException(
+          code: 'SERVER_ERROR',
+          message: 'Unsupported method',
+        );
     }
 
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -210,7 +227,8 @@ class MockApiBackend {
   ) async {
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
-    if (method == 'POST' && path == '/auth/register') return _register(body ?? {});
+    if (method == 'POST' && path == '/auth/register')
+      return _register(body ?? {});
     if (method == 'POST' && path == '/auth/login') return _login(body ?? {});
     if (method == 'POST' && path == '/auth/logout') return _ok(true);
 
@@ -218,12 +236,18 @@ class MockApiBackend {
     if (user == null) return _error('UNAUTHENTICATED');
 
     if (method == 'GET' && path == '/account/me') return _me(user);
-    if (method == 'PUT' && path == '/account/profile') return _updateProfile(user, body ?? {});
-    if (method == 'POST' && path == '/account/relationship/shift-date') return _shiftDate(user);
-    if (method == 'POST' && path == '/pairing/generate') return _generateCode(user);
-    if (method == 'POST' && path == '/pairing/connect') return _connect(user, body ?? {});
-    if (method == 'GET' && path == '/pairing/status') return _pairingStatus(user);
-    if (method == 'DELETE' && path == '/pairing/disconnect') return _disconnect(user);
+    if (method == 'PUT' && path == '/account/profile')
+      return _updateProfile(user, body ?? {});
+    if (method == 'POST' && path == '/account/relationship/shift-date')
+      return _shiftDate(user);
+    if (method == 'POST' && path == '/pairing/generate')
+      return _generateCode(user);
+    if (method == 'POST' && path == '/pairing/connect')
+      return _connect(user, body ?? {});
+    if (method == 'GET' && path == '/pairing/status')
+      return _pairingStatus(user);
+    if (method == 'DELETE' && path == '/pairing/disconnect')
+      return _disconnect(user);
     if (method == 'GET' && path == '/heart-map') return _heartMapSnapshot(user);
     if (method == 'POST' && path == '/heart-map/location') {
       return _updateHeartLocation(user, body ?? {});
@@ -231,7 +255,14 @@ class MockApiBackend {
 
     // Milestones routes
     if (method == 'GET' && path == '/milestones') return _getMilestones(user);
-    if (method == 'POST' && path == '/milestones') return _createMilestone(user, body ?? {});
+    if (method == 'POST' && path == '/milestones')
+      return _createMilestone(user, body ?? {});
+    if (method == 'PATCH' &&
+        path.startsWith('/milestones/') &&
+        path.contains('/tasks/')) {
+      final parts = path.split('/');
+      return _updateMilestoneTask(user, parts[2], parts[4], body ?? {});
+    }
     if (method == 'PUT' && path.startsWith('/milestones/')) {
       final id = path.replaceFirst('/milestones/', '');
       return _updateMilestone(user, id, body ?? {});
@@ -247,7 +278,8 @@ class MockApiBackend {
   Map<String, dynamic> _register(Map<String, dynamic> body) {
     final email = body['email']?.toString().trim().toLowerCase() ?? '';
     final password = body['password']?.toString() ?? '';
-    if (!email.contains('@') || password.length < 6) return _error('INVALID_INPUT');
+    if (!email.contains('@') || password.length < 6)
+      return _error('INVALID_INPUT');
     if (_usersByEmail.containsKey(email)) return _error('EMAIL_ALREADY_EXISTS');
 
     final now = DateTime.now().toUtc();
@@ -289,8 +321,8 @@ class MockApiBackend {
     final partnerId = relationship == null
         ? null
         : relationship['userAId'] == user['id']
-            ? relationship['userBId']
-            : relationship['userAId'];
+        ? relationship['userBId']
+        : relationship['userAId'];
     final partner = partnerId == null ? null : _findUserById(partnerId);
     return _ok({
       'user': _publicUser(user),
@@ -300,7 +332,10 @@ class MockApiBackend {
     });
   }
 
-  Map<String, dynamic> _updateProfile(Map<String, dynamic> user, Map<String, dynamic> body) {
+  Map<String, dynamic> _updateProfile(
+    Map<String, dynamic> user,
+    Map<String, dynamic> body,
+  ) {
     final displayName = body['displayName']?.toString().trim() ?? '';
     if (displayName.isEmpty) return _error('INVALID_INPUT');
 
@@ -318,7 +353,8 @@ class MockApiBackend {
   }
 
   Map<String, dynamic> _generateCode(Map<String, dynamic> user) {
-    if (_relationshipsByUserId.containsKey(user['id'])) return _error('USER_ALREADY_PAIRED');
+    if (_relationshipsByUserId.containsKey(user['id']))
+      return _error('USER_ALREADY_PAIRED');
 
     final code = _randomCode();
     final now = DateTime.now().toUtc();
@@ -336,17 +372,24 @@ class MockApiBackend {
     return _ok(pairing);
   }
 
-  Map<String, dynamic> _connect(Map<String, dynamic> user, Map<String, dynamic> body) {
-    if (_relationshipsByUserId.containsKey(user['id'])) return _error('USER_ALREADY_PAIRED');
+  Map<String, dynamic> _connect(
+    Map<String, dynamic> user,
+    Map<String, dynamic> body,
+  ) {
+    if (_relationshipsByUserId.containsKey(user['id']))
+      return _error('USER_ALREADY_PAIRED');
 
     final code = body['code']?.toString().trim().toUpperCase() ?? '';
     final pairing = _pairingCodes[code];
     if (pairing == null) return _error('PAIRING_CODE_INVALID');
     if (pairing['status'] == 'used') return _error('PAIRING_CODE_USED');
-    if (DateTime.parse(pairing['expiredAt'] as String).isBefore(DateTime.now().toUtc())) {
+    if (DateTime.parse(
+      pairing['expiredAt'] as String,
+    ).isBefore(DateTime.now().toUtc())) {
       return _error('PAIRING_CODE_EXPIRED');
     }
-    if (pairing['createdByUserId'] == user['id']) return _error('PAIRING_SELF_NOT_ALLOWED');
+    if (pairing['createdByUserId'] == user['id'])
+      return _error('PAIRING_SELF_NOT_ALLOWED');
     if (_relationshipsByUserId.containsKey(pairing['createdByUserId'])) {
       return _error('PARTNER_ALREADY_PAIRED');
     }
@@ -360,7 +403,8 @@ class MockApiBackend {
       'userAId': creator['id'],
       'userBId': user['id'],
       'relationshipStartDate':
-          _profilesByUserId[creator['id']]?['relationshipStartDate'] ?? now.toIso8601String(),
+          _profilesByUserId[creator['id']]?['relationshipStartDate'] ??
+          now.toIso8601String(),
       'status': 'active',
       'disconnectedAt': null,
       'createdAt': now.toIso8601String(),
@@ -372,16 +416,17 @@ class MockApiBackend {
     pairing['usedByUserId'] = user['id'];
     pairing['usedAt'] = now.toIso8601String();
 
-    return _ok({
-      'relationship': relationship,
-      'partner': _publicUser(creator),
-    });
+    return _ok({'relationship': relationship, 'partner': _publicUser(creator)});
   }
 
   Map<String, dynamic> _pairingStatus(Map<String, dynamic> user) {
     final relationship = _relationshipsByUserId[user['id']];
     if (relationship == null) {
-      return _ok({'status': 'unpaired', 'relationshipId': null, 'partner': null});
+      return _ok({
+        'status': 'unpaired',
+        'relationshipId': null,
+        'partner': null,
+      });
     }
     final partnerId = relationship['userAId'] == user['id']
         ? relationship['userBId']
@@ -412,7 +457,10 @@ class MockApiBackend {
     return _ok(_heartMapPayload(user, relationship));
   }
 
-  Map<String, dynamic> _updateHeartLocation(Map<String, dynamic> user, Map<String, dynamic> body) {
+  Map<String, dynamic> _updateHeartLocation(
+    Map<String, dynamic> user,
+    Map<String, dynamic> body,
+  ) {
     final relationship = _relationshipsByUserId[user['id']];
     if (relationship == null) return _error('RELATIONSHIP_NOT_FOUND');
 
@@ -472,7 +520,9 @@ class MockApiBackend {
       'self': self,
       'partner': partner,
       'distanceMeters': distanceMeters,
-      'status': distanceMeters == null ? 'unknown' : (distanceMeters <= 1000 ? 'near' : 'far'),
+      'status': distanceMeters == null
+          ? 'unknown'
+          : (distanceMeters <= 1000 ? 'near' : 'far'),
       'history': history,
     };
   }
@@ -483,7 +533,8 @@ class MockApiBackend {
     final phi2 = lat2 * pi / 180;
     final deltaPhi = (lat2 - lat1) * pi / 180;
     final deltaLambda = (lng2 - lng1) * pi / 180;
-    final h = sin(deltaPhi / 2) * sin(deltaPhi / 2) +
+    final h =
+        sin(deltaPhi / 2) * sin(deltaPhi / 2) +
         cos(phi1) * cos(phi2) * sin(deltaLambda / 2) * sin(deltaLambda / 2);
     return (earthRadiusMeters * 2 * atan2(sqrt(h), sqrt(1 - h))).round();
   }
@@ -538,25 +589,74 @@ class MockApiBackend {
   }
 
   Map<String, dynamic> _ok(Object? data) => {
-        'success': true,
-        'data': data,
-        'error': null,
-      };
+    'success': true,
+    'data': data,
+    'error': null,
+  };
 
   Map<String, dynamic> _error(String code) => {
-        'success': false,
-        'data': null,
-        'error': {
-          'code': code,
-          'message': ErrorMessages.friendly(code),
-        },
-      };
+    'success': false,
+    'data': null,
+    'error': {'code': code, 'message': ErrorMessages.friendly(code)},
+  };
 
   Map<String, dynamic> _getMilestones(Map<String, dynamic> user) {
     return _ok(_mockMilestones);
   }
 
-  Map<String, dynamic> _createMilestone(Map<String, dynamic> user, Map<String, dynamic> body) {
+  List<String> _relationshipMemberIds(Map<String, dynamic> user) {
+    final relationship = _relationshipsByUserId[user['id']];
+    if (relationship == null) return [user['id'].toString()];
+    return [
+      relationship['userAId'].toString(),
+      relationship['userBId'].toString(),
+    ];
+  }
+
+  List<Map<String, dynamic>> _sanitizeChecklist(
+    Object? rawChecklist,
+    List<String> allowedAssigneeIds,
+    String fallbackAssigneeId,
+    Object? existingChecklist, {
+    bool preserveSubmittedDone = true,
+  }) {
+    if (rawChecklist is! List) return [];
+    final existingDoneById = <String, bool>{};
+    if (existingChecklist is List) {
+      for (final item in existingChecklist.whereType<Map<String, dynamic>>()) {
+        existingDoneById[item['id']?.toString() ?? ''] =
+            item['isDone'] as bool? ?? false;
+      }
+    }
+
+    return rawChecklist
+        .whereType<Map<String, dynamic>>()
+        .map((item) {
+          final title = item['title']?.toString().trim() ?? '';
+          if (title.isEmpty) return null;
+          final id = item['id']?.toString().isNotEmpty == true
+              ? item['id'].toString()
+              : 'task_${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(999)}';
+          final assignee = item['assignee']?.toString().trim() ?? '';
+          return {
+            'id': id,
+            'title': title,
+            'assignee': allowedAssigneeIds.contains(assignee)
+                ? assignee
+                : fallbackAssigneeId,
+            'isDone':
+                existingDoneById[id] ??
+                (preserveSubmittedDone && (item['isDone'] as bool? ?? false)),
+          };
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  Map<String, dynamic> _createMilestone(
+    Map<String, dynamic> user,
+    Map<String, dynamic> body,
+  ) {
     final now = DateTime.now().toUtc().toIso8601String();
     final milestone = {
       'id': 'm_${DateTime.now().millisecondsSinceEpoch}',
@@ -567,6 +667,13 @@ class MockApiBackend {
       'icon': body['icon']?.toString() ?? '🎉',
       'type': body['type']?.toString() ?? 'memory',
       'isCompleted': body['isCompleted'] as bool? ?? false,
+      'checklist': _sanitizeChecklist(
+        body['checklist'],
+        _relationshipMemberIds(user),
+        user['id'].toString(),
+        null,
+        preserveSubmittedDone: false,
+      ),
       'createdAt': now,
       'updatedAt': now,
     };
@@ -574,18 +681,62 @@ class MockApiBackend {
     return _ok(milestone);
   }
 
-  Map<String, dynamic> _updateMilestone(Map<String, dynamic> user, String id, Map<String, dynamic> body) {
+  Map<String, dynamic> _updateMilestone(
+    Map<String, dynamic> user,
+    String id,
+    Map<String, dynamic> body,
+  ) {
     final index = _mockMilestones.indexWhere((item) => item['id'] == id);
     if (index == -1) return _error('SERVER_ERROR');
-    
+
     final item = _mockMilestones[index];
     item['title'] = body['title']?.toString() ?? item['title'];
     item['date'] = body['date']?.toString() ?? item['date'];
     item['icon'] = body['icon']?.toString() ?? item['icon'];
     item['type'] = body['type']?.toString() ?? item['type'] ?? 'memory';
-    item['isCompleted'] = body['isCompleted'] as bool? ?? item['isCompleted'] ?? false;
+    item['isCompleted'] =
+        body['isCompleted'] as bool? ?? item['isCompleted'] ?? false;
+    if (body.containsKey('checklist')) {
+      item['checklist'] = _sanitizeChecklist(
+        body['checklist'],
+        _relationshipMemberIds(user),
+        user['id'].toString(),
+        item['checklist'],
+        preserveSubmittedDone: false,
+      );
+    }
     item['updatedAt'] = DateTime.now().toUtc().toIso8601String();
-    
+
+    return _ok(item);
+  }
+
+  Map<String, dynamic> _updateMilestoneTask(
+    Map<String, dynamic> user,
+    String milestoneId,
+    String taskId,
+    Map<String, dynamic> body,
+  ) {
+    final index = _mockMilestones.indexWhere(
+      (item) => item['id'] == milestoneId,
+    );
+    if (index == -1 || body['isDone'] is! bool) return _error('SERVER_ERROR');
+
+    final item = _mockMilestones[index];
+    final checklist = _sanitizeChecklist(
+      item['checklist'],
+      _relationshipMemberIds(user),
+      user['id'].toString(),
+      item['checklist'],
+    );
+    final taskIndex = checklist.indexWhere((task) => task['id'] == taskId);
+    if (taskIndex == -1) return _error('SERVER_ERROR');
+    if (checklist[taskIndex]['assignee'] != user['id']) {
+      return _error('UNAUTHENTICATED');
+    }
+
+    checklist[taskIndex]['isDone'] = body['isDone'] as bool;
+    item['checklist'] = checklist;
+    item['updatedAt'] = DateTime.now().toUtc().toIso8601String();
     return _ok(item);
   }
 
@@ -597,21 +748,23 @@ class MockApiBackend {
   Map<String, dynamic> _shiftDate(Map<String, dynamic> user) {
     final relationship = _relationshipsByUserId[user['id']];
     final profile = _profilesByUserId[user['id']];
-    
-    String? currentDateString = relationship != null 
-      ? relationship['relationshipStartDate']?.toString()
-      : (profile != null ? profile['relationshipStartDate']?.toString() : null);
-      
+
+    String? currentDateString = relationship != null
+        ? relationship['relationshipStartDate']?.toString()
+        : (profile != null
+              ? profile['relationshipStartDate']?.toString()
+              : null);
+
     currentDateString ??= DateTime.now().toUtc().toIso8601String();
-    
+
     final currentDate = DateTime.parse(currentDateString);
     final newDate = currentDate.subtract(const Duration(days: 1));
     final newDateString = newDate.toUtc().toIso8601String();
-    
+
     if (relationship != null) {
       relationship['relationshipStartDate'] = newDateString;
     }
-    
+
     // Always upsert to profile for safety
     if (profile != null) {
       profile['relationshipStartDate'] = newDateString;
@@ -624,7 +777,7 @@ class MockApiBackend {
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
       };
     }
-    
+
     return _ok({'newStartDate': newDateString});
   }
 }

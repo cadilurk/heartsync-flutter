@@ -10,6 +10,8 @@ import { createServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { MongoClient, ObjectId } from 'mongodb';
 import { Server } from 'socket.io';
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
 import createSpaceRouter from './spaceRouter.js';
 import createStoreRouter from './storeRouter.js';
 import createChallengeRouter from './challengeRouter.js';
@@ -63,13 +65,17 @@ const milestones = db.collection('milestones');
 const heartLocations = db.collection('heartLocations');
 const heartLocationHistory = db.collection('heartLocationHistory');
 
-await users.createIndex({ email: 1 }, { unique: true });
-await pairingCodes.createIndex({ code: 1 }, { unique: true });
-await pairingCodes.createIndex({ expiredAt: 1 }, { expireAfterSeconds: 3600 });
-await signals.createIndex({ toUserId: 1, readAt: 1 });
-await signals.createIndex({ sentAt: -1 });
-await heartLocations.createIndex({ relationshipId: 1, userId: 1 }, { unique: true });
-await heartLocationHistory.createIndex({ relationshipId: 1, recordedAt: -1 });
+try {
+  await users.createIndex({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: "string" } } });
+  await pairingCodes.createIndex({ code: 1 }, { unique: true });
+  await pairingCodes.createIndex({ expiredAt: 1 }, { expireAfterSeconds: 3600 });
+  await signals.createIndex({ toUserId: 1, readAt: 1 });
+  await signals.createIndex({ sentAt: -1 });
+  await heartLocations.createIndex({ relationshipId: 1, userId: 1 }, { unique: true });
+  await heartLocationHistory.createIndex({ relationshipId: 1, recordedAt: -1 });
+} catch (indexErr) {
+  console.warn('MongoDB index initialization note:', indexErr.message);
+}
 
 function ok(data) {
   return { success: true, data, error: null };
@@ -733,6 +739,77 @@ app.patch('/signals/read-all', auth, async (req, res) => {
 
 // ── Milestones API Endpoints ───────────────────────────────────────────────
 
+function relationshipMemberIds(relationship, currentUserId) {
+  if (!relationship) return [String(currentUserId)];
+  return [String(relationship.userAId), String(relationship.userBId)];
+}
+
+function sanitizeChecklist(
+  rawChecklist = [],
+  allowedAssigneeIds = [],
+  fallbackAssigneeId = '',
+  existingChecklist = null,
+  preserveSubmittedDone = true
+) {
+  if (!Array.isArray(rawChecklist)) return [];
+  const allowed = allowedAssigneeIds.map(String);
+  const fallback = String(fallbackAssigneeId || allowed[0] || '');
+  const existingDoneById = new Map(
+    Array.isArray(existingChecklist)
+      ? existingChecklist.map((item) => [String(item?.id || ''), Boolean(item?.isDone)])
+      : []
+  );
+  return rawChecklist
+    .map((item) => {
+      const title = String(item?.title || '').trim();
+      if (!title) return null;
+      const assignee = String(item?.assignee || '').trim();
+      const id = item?.id ? String(item.id) : new ObjectId().toString();
+      return {
+        id,
+        title,
+        assignee: allowed.length === 0 || allowed.includes(assignee) ? assignee : fallback,
+        isDone: existingDoneById.has(id)
+          ? existingDoneById.get(id)
+          : preserveSubmittedDone && Boolean(item?.isDone),
+      };
+    })
+    .filter(Boolean);
+}
+
+// Helper: serialize a milestone document to API response shape
+function serializeMilestone(item) {
+  // Derive isCompleted from status for backward compatibility
+  const status = item.status || 'completed';
+  const isCompleted = status === 'completed';
+  return {
+    id: item._id.toString(),
+    userId: item.userId.toString(),
+    relationshipId: item.relationshipId ? item.relationshipId.toString() : null,
+    title: item.title,
+    date: item.date,
+    icon: item.icon,
+    type: item.type || 'memory',
+    isCompleted,
+    status,
+    creatorConfirmed: item.creatorConfirmed ?? true,
+    partnerConfirmed: item.partnerConfirmed ?? false,
+    partnerProposedDate: item.partnerProposedDate ?? null,
+    partnerResponse: item.partnerResponse ?? null,
+    // Media & mood
+    coverImageUrl: item.coverImageUrl ?? null,
+    coverImageUrls: item.coverImageUrls || (item.coverImageUrl ? [item.coverImageUrl] : []),
+    mood: item.mood ?? null,
+    songTitle: item.songTitle ?? null,
+    songArtist: item.songArtist ?? null,
+    songPreviewUrl: item.songPreviewUrl ?? null,
+    songArtworkUrl: item.songArtworkUrl ?? null,
+    checklist: sanitizeChecklist(item.checklist, [], ''),
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString()
+  };
+}
+
 // GET /milestones
 app.get('/milestones', auth, async (req, res) => {
   const relationship = await activeRelationshipFor(req.user._id);
@@ -750,19 +827,7 @@ app.get('/milestones', auth, async (req, res) => {
   }
   try {
     const list = await milestones.find(query).sort({ date: 1 }).toArray();
-    const serialized = list.map(item => ({
-      id: item._id.toString(),
-      userId: item.userId.toString(),
-      relationshipId: item.relationshipId ? item.relationshipId.toString() : null,
-      title: item.title,
-      date: item.date,
-      icon: item.icon,
-      type: item.type || 'memory',
-      isCompleted: item.isCompleted ?? false,
-      createdAt: item.createdAt.toISOString(),
-      updatedAt: item.updatedAt.toISOString()
-    }));
-    return res.json(ok(serialized));
+    return res.json(ok(list.map(serializeMilestone)));
   } catch (error) {
     console.error('Error fetching milestones:', error);
     const serverError = fail('SERVER_ERROR', 500);
@@ -784,26 +849,36 @@ app.post('/milestones', auth, async (req, res) => {
       userId: req.user._id,
       relationshipId: relationship ? relationship._id : null,
       title: String(title).trim(),
-      date: String(date), // YYYY-MM-DD
+      date: String(date),
       icon: String(icon || '🎉'),
-      type: String(req.body.type || 'memory'), // 'memory' or 'challenge'
-      isCompleted: Boolean(req.body.isCompleted ?? false),
+      type: String(req.body.type || 'memory'),
+      // Dual-confirmation fields
+      status: 'pending',
+      creatorConfirmed: true,
+      partnerConfirmed: false,
+      partnerProposedDate: null,
+      partnerResponse: null,
+      // Media & mood fields
+      coverImageUrl: null,
+      coverImageUrls: [],
+      mood: req.body.mood ? String(req.body.mood) : null,
+      songTitle: req.body.songTitle ? String(req.body.songTitle) : null,
+      songArtist: req.body.songArtist ? String(req.body.songArtist) : null,
+      songPreviewUrl: req.body.songPreviewUrl ? String(req.body.songPreviewUrl) : null,
+      songArtworkUrl: req.body.songArtworkUrl ? String(req.body.songArtworkUrl) : null,
+      checklist: sanitizeChecklist(
+        req.body.checklist,
+        relationshipMemberIds(relationship, req.user._id),
+        req.user._id,
+        null,
+        false
+      ),
       createdAt: now,
       updatedAt: now
     };
     const result = await milestones.insertOne(milestone);
-    return res.json(ok({
-      id: result.insertedId.toString(),
-      userId: milestone.userId.toString(),
-      relationshipId: milestone.relationshipId ? milestone.relationshipId.toString() : null,
-      title: milestone.title,
-      date: milestone.date,
-      icon: milestone.icon,
-      type: milestone.type,
-      isCompleted: milestone.isCompleted,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
-    }));
+    milestone._id = result.insertedId;
+    return res.json(ok(serializeMilestone(milestone)));
   } catch (error) {
     console.error('Error creating milestone:', error);
     const serverError = fail('SERVER_ERROR', 500);
@@ -811,11 +886,73 @@ app.post('/milestones', auth, async (req, res) => {
   }
 });
 
-// PUT /milestones/:id
+// PUT /milestones/:id  (creator-only: edit title/date/icon)
 app.put('/milestones/:id', auth, async (req, res) => {
   const { id } = req.params;
   const { title, date, icon } = req.body;
   if (!title || !date) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const query = { _id: new ObjectId(id) };
+    const milestone = await milestones.findOne(query);
+    if (!milestone) {
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+    const isCreator = String(milestone.userId) === String(req.user._id);
+    if (!isCreator) {
+      return res.status(403).json({ success: false, error: 'Only the creator can edit a milestone.' });
+    }
+    const relationship = await activeRelationshipFor(req.user._id);
+    const now = new Date();
+    await milestones.updateOne(query, {
+      $set: {
+        title: String(title).trim(),
+        date: String(date),
+        icon: String(icon || '🎉'),
+        type: String(req.body.type || milestone.type || 'memory'),
+        // Reset confirmation when creator edits
+        status: 'pending',
+        partnerConfirmed: false,
+        partnerResponse: null,
+        partnerProposedDate: null,
+        // Media & mood
+        ...(req.body.mood !== undefined && { mood: req.body.mood ? String(req.body.mood) : null }),
+        ...(req.body.songTitle !== undefined && { songTitle: req.body.songTitle ? String(req.body.songTitle) : null }),
+        ...(req.body.songArtist !== undefined && { songArtist: req.body.songArtist ? String(req.body.songArtist) : null }),
+        ...(req.body.songPreviewUrl !== undefined && { songPreviewUrl: req.body.songPreviewUrl ? String(req.body.songPreviewUrl) : null }),
+        ...(req.body.songArtworkUrl !== undefined && { songArtworkUrl: req.body.songArtworkUrl ? String(req.body.songArtworkUrl) : null }),
+        ...(req.body.checklist !== undefined && {
+          checklist: sanitizeChecklist(
+            req.body.checklist,
+            relationshipMemberIds(relationship, req.user._id),
+            req.user._id,
+            milestone.checklist,
+            false
+          )
+        }),
+        updatedAt: now
+      }
+    });
+    const updated = await milestones.findOne(query);
+    return res.json(ok(serializeMilestone(updated)));
+  } catch (error) {
+    console.error('Error updating milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// POST /milestones/:id/respond  (partner: accept | decline | propose_date)
+app.post('/milestones/:id/respond', auth, async (req, res) => {
+  const { id } = req.params;
+  const { action, proposedDate } = req.body;
+  if (!['accept', 'decline', 'propose_date'].includes(action)) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  if (action === 'propose_date' && !proposedDate) {
     const error = fail('INVALID_INPUT');
     return res.status(error.status).json(error.body);
   }
@@ -826,6 +963,99 @@ app.put('/milestones/:id', auth, async (req, res) => {
     if (!milestone) {
       return res.status(404).json({ success: false, error: 'Not found' });
     }
+    // Must be partner (not creator)
+    const isCreator = String(milestone.userId) === String(req.user._id);
+    if (isCreator) {
+      return res.status(403).json({ success: false, error: 'Creator cannot respond to their own milestone. Use /confirm instead.' });
+    }
+    if (!relationship) {
+      const error = fail('UNAUTHENTICATED', 401);
+      return res.status(error.status).json(error.body);
+    }
+    const now = new Date();
+    let statusUpdate = {};
+    if (action === 'accept') {
+      statusUpdate = { status: 'completed', partnerConfirmed: true, partnerResponse: 'accepted' };
+    } else if (action === 'decline') {
+      statusUpdate = { status: 'declined', partnerConfirmed: false, partnerResponse: 'declined' };
+    } else {
+      // propose_date
+      statusUpdate = {
+        status: 'negotiating',
+        partnerConfirmed: false,
+        partnerResponse: 'proposed_date',
+        partnerProposedDate: String(proposedDate)
+      };
+    }
+    await milestones.updateOne(query, { $set: { ...statusUpdate, updatedAt: now } });
+    const updated = await milestones.findOne(query);
+    return res.json(ok(serializeMilestone(updated)));
+  } catch (error) {
+    console.error('Error responding to milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// POST /milestones/:id/confirm  (creator: accept | decline partner's proposed date)
+app.post('/milestones/:id/confirm', auth, async (req, res) => {
+  const { id } = req.params;
+  const { action } = req.body;
+  if (!['accept', 'decline'].includes(action)) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const query = { _id: new ObjectId(id) };
+    const milestone = await milestones.findOne(query);
+    if (!milestone) {
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+    const isCreator = String(milestone.userId) === String(req.user._id);
+    if (!isCreator) {
+      return res.status(403).json({ success: false, error: 'Only the creator can confirm a date proposal.' });
+    }
+    if (milestone.status !== 'negotiating') {
+      return res.status(400).json({ success: false, error: 'Milestone is not in negotiating state.' });
+    }
+    const now = new Date();
+    let statusUpdate = {};
+    if (action === 'accept') {
+      statusUpdate = {
+        status: 'completed',
+        partnerConfirmed: true,
+        date: milestone.partnerProposedDate,  // adopt partner's suggested date
+        updatedAt: now
+      };
+    } else {
+      statusUpdate = { status: 'declined', updatedAt: now };
+    }
+    await milestones.updateOne(query, { $set: statusUpdate });
+    const updated = await milestones.findOne(query);
+    return res.json(ok(serializeMilestone(updated)));
+  } catch (error) {
+    console.error('Error confirming milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// PATCH /milestones/:id/tasks/:taskId  (relationship members: toggle task)
+app.patch('/milestones/:id/tasks/:taskId', auth, async (req, res) => {
+  const { id, taskId } = req.params;
+  const { isDone } = req.body;
+  if (typeof isDone !== 'boolean') {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const relationship = await activeRelationshipFor(req.user._id);
+    const query = { _id: new ObjectId(id) };
+    const milestone = await milestones.findOne(query);
+    if (!milestone) {
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
     const isCreator = String(milestone.userId) === String(req.user._id);
     const isPartner = relationship && (
       String(milestone.relationshipId) === String(relationship._id) ||
@@ -835,36 +1065,31 @@ app.put('/milestones/:id', auth, async (req, res) => {
       const error = fail('UNAUTHENTICATED', 401);
       return res.status(error.status).json(error.body);
     }
-    const now = new Date();
-    const { type, isCompleted } = req.body;
-    await milestones.updateOne(
-      query,
-      {
-        $set: {
-          title: String(title).trim(),
-          date: String(date),
-          icon: String(icon || '🎉'),
-          type: String(type || 'memory'),
-          isCompleted: Boolean(isCompleted ?? false),
-          updatedAt: now
-        }
-      }
+
+    const checklist = sanitizeChecklist(
+      milestone.checklist,
+      relationshipMemberIds(relationship, req.user._id),
+      req.user._id
     );
+    const taskIndex = checklist.findIndex((task) => task.id === String(taskId));
+    if (taskIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Task not found' });
+    }
+    if (String(checklist[taskIndex].assignee) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, error: 'Only the assigned person can complete this task.' });
+    }
+
+    checklist[taskIndex] = { ...checklist[taskIndex], isDone };
+    await milestones.updateOne(query, {
+      $set: {
+        checklist,
+        updatedAt: new Date()
+      }
+    });
     const updated = await milestones.findOne(query);
-    return res.json(ok({
-      id: updated._id.toString(),
-      userId: updated.userId.toString(),
-      relationshipId: updated.relationshipId ? updated.relationshipId.toString() : null,
-      title: updated.title,
-      date: updated.date,
-      icon: updated.icon,
-      type: updated.type || 'memory',
-      isCompleted: updated.isCompleted ?? false,
-      createdAt: updated.createdAt.toISOString(),
-      updatedAt: updated.updatedAt.toISOString()
-    }));
+    return res.json(ok(serializeMilestone(updated)));
   } catch (error) {
-    console.error('Error updating milestone:', error);
+    console.error('Error updating milestone task:', error);
     const serverError = fail('SERVER_ERROR', 500);
     return res.status(serverError.status).json(serverError.body);
   }
@@ -893,6 +1118,77 @@ app.delete('/milestones/:id', auth, async (req, res) => {
     return res.json(ok(true));
   } catch (error) {
     console.error('Error deleting milestone:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
+// POST /milestones/:id/cover  – upload cover image to Cloudinary
+const _coverUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+app.post('/milestones/:id/cover', auth, _coverUpload.any(), async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (!req.files || req.files.length === 0) {
+      const error = fail('INVALID_INPUT');
+      return res.status(error.status).json(error.body);
+    }
+
+    const query = { _id: new ObjectId(id) };
+    const milestone = await milestones.findOne(query);
+    if (!milestone) {
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+    const isCreator = String(milestone.userId) === String(req.user._id);
+    if (!isCreator) {
+      return res.status(403).json({ success: false, error: 'Only the creator can upload a cover image.' });
+    }
+
+    // Configure cloudinary
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+      return res.status(500).json({ success: false, error: 'Cloudinary not configured' });
+    }
+
+    // Upload to Cloudinary under milestones/ folder
+    const folder = `milestones/${String(req.user._id)}`;
+    
+    const coverImageUrls = [];
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      const publicId = `cover_${id}_${i}_${Date.now()}`;
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder, public_id: publicId, overwrite: true, resource_type: 'image' },
+          (err, result) => {
+            if (err) reject(err);
+            else resolve(result);
+          }
+        );
+        stream.end(file.buffer);
+      });
+
+      const url = cloudinary.url(uploadResult.public_id, {
+        secure: true,
+        transformation: [{ width: 800, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
+      });
+      coverImageUrls.push(url);
+    }
+
+    const coverImageUrl = coverImageUrls.length > 0 ? coverImageUrls[0] : null;
+
+    const now = new Date();
+    await milestones.updateOne(query, { $set: { coverImageUrl, coverImageUrls, updatedAt: now } });
+    const updated = await milestones.findOne(query);
+    return res.json(ok(serializeMilestone(updated)));
+  } catch (error) {
+    console.error('Error uploading milestone cover:', error);
     const serverError = fail('SERVER_ERROR', 500);
     return res.status(serverError.status).json(serverError.body);
   }

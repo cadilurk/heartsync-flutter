@@ -1,5 +1,5 @@
 #!/bin/bash
-# Lay IP WiFi
+# Lay IP WiFi tren macOS / Linux
 if [[ "$OSTYPE" == "darwin"* ]]; then
   IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
 else
@@ -18,6 +18,3 @@ sed -i.bak "s|defaultValue: 'http://[^']*'|defaultValue: 'http://$IP:5291'|g" \
   lib/core/constants/api_constants.dart
 
 echo "✅ Đã cập nhật api_constants.dart → http://$IP:5291"
-echo "🚀 Đang chạy Flutter..."
-
-flutter run --dart-define=HEART_SYNC_API_BASE_URL=http://$IP:5291
