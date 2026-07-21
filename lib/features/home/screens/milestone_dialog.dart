@@ -10,6 +10,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../models/milestone.dart';
 import '../models/song_result.dart';
 import '../providers/milestone_provider.dart';
+import 'auto_slider_background.dart';
 
 // ── Mood definitions ─────────────────────────────────────────────────────────
 
@@ -1323,16 +1324,21 @@ class _MilestoneDialogState extends State<MilestoneDialog> {
             itemBuilder: (context, i) {
               return Container(
                 width: 120,
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.grey.shade200),
-                  image: DecorationImage(
-                    image: hasLocal
-                        ? NetworkImage(_pendingCoverImages[i].path)
-                        : NetworkImage(m!.coverImageUrls[i]),
-                    fit: BoxFit.cover,
-                  ),
                 ),
+                child: hasLocal
+                    ? Image.network(
+                        _pendingCoverImages[i].path,
+                        fit: BoxFit.cover,
+                      )
+                    : FramedContainImage(
+                        imageUrl: m!.coverImageUrls[i],
+                        borderRadius: 15,
+                        padding: const EdgeInsets.all(6),
+                      ),
               );
             },
           ),
@@ -1873,13 +1879,13 @@ class _MilestoneDialogState extends State<MilestoneDialog> {
         const SizedBox(height: 12),
         // Cover image
         if (m.coverImageUrl != null) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              m.coverImageUrl!,
-              height: 150,
-              width: double.infinity,
-              fit: BoxFit.cover,
+          SizedBox(
+            height: 190,
+            width: double.infinity,
+            child: FramedContainImage(
+              imageUrl: m.coverImageUrl!,
+              borderRadius: 16,
+              padding: const EdgeInsets.all(10),
             ),
           ),
           const SizedBox(height: 16),

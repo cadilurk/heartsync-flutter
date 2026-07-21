@@ -878,7 +878,7 @@ class _HomeTabState extends State<_HomeTab>
                   gradient: LinearGradient(
                     colors: [
                       Colors.black.withValues(alpha: 0.0),
-                      Colors.black.withValues(alpha: 0.7),
+                      Colors.black.withValues(alpha: 0.58),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
