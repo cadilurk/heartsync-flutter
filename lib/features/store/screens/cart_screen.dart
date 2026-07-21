@@ -131,7 +131,7 @@ class _CartScreenState extends State<CartScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          '${item.product.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{3})(?=\d)'), (Match m) => '${m[1]}.')}đ',
+                                          '${item.product.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')}đ',
                                           style: const TextStyle(
                                             color: AppColors.active,
                                             fontWeight: FontWeight.bold,
@@ -198,7 +198,7 @@ class _CartScreenState extends State<CartScreen> {
                                 style: const TextStyle(fontSize: 14, color: AppColors.subtitle),
                               ),
                               Text(
-                                '${selectedTotalAmount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{3})(?=\d)'), (Match m) => '${m[1]}.')}đ',
+                                '${selectedTotalAmount.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')}đ',
                                 style: const TextStyle(
                                   color: AppColors.active,
                                   fontSize: 20,

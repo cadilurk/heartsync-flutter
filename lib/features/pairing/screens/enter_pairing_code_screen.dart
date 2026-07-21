@@ -40,7 +40,10 @@ class _EnterPairingCodeScreenState extends State<EnterPairingCodeScreen> {
       (value) => value.state == PairingState.loading,
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('Nhập mã ghép đôi')),
+      appBar: AppBar(
+        title: const Text('Nhập mã ghép đôi'),
+        leading: BackButton(onPressed: () => context.go('/pairing')),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [

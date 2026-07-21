@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -36,7 +37,10 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
     final code = provider.activeCode;
     final isLoading = provider.state == PairingState.loading;
     return Scaffold(
-      appBar: AppBar(title: const Text('Mã ghép đôi')),
+      appBar: AppBar(
+        title: const Text('Mã ghép đôi'),
+        leading: BackButton(onPressed: () => context.go('/pairing')),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

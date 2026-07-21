@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/constants/api_constants.dart';
@@ -11,10 +12,13 @@ import '../features/alarm/providers/alarm_provider.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/auth/providers/current_user_provider.dart';
 import '../features/auth/services/auth_service.dart';
+import '../features/auth/services/firebase_auth_gateway.dart';
 import '../features/heart_map/providers/heart_map_provider.dart';
 import '../features/heart_map/services/heart_map_service.dart';
 import '../features/home/providers/milestone_provider.dart';
 import '../features/home/services/milestone_service.dart';
+import '../features/home/providers/pet_provider.dart';
+import '../features/home/services/pet_service.dart';
 import '../features/pairing/providers/pairing_provider.dart';
 import '../features/pairing/services/pairing_service.dart';
 import '../features/alarm/services/signal_service.dart';
@@ -25,8 +29,20 @@ import '../features/store/services/store_service.dart';
 import 'router.dart';
 import 'theme.dart';
 
-class HeartSyncApp extends StatelessWidget {
+class HeartSyncApp extends StatefulWidget {
   const HeartSyncApp({super.key});
+
+  @override
+  State<HeartSyncApp> createState() => _HeartSyncAppState();
+}
+
+class _HeartSyncAppState extends State<HeartSyncApp> {
+  // Created exactly once and reused — GoRouter already subscribes to
+  // AuthProvider itself via refreshListenable, so recreating the whole
+  // router on every AuthProvider change (e.g. inside a Consumer) would
+  // discard the current navigation stack and reset to initialLocation
+  // on every single notifyListeners() call.
+  GoRouter? _router;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +61,7 @@ class HeartSyncApp extends StatelessWidget {
           update: (_, apiClient, previous) =>
               previous ?? AuthService(apiClient),
         ),
+        Provider(create: (_) => FirebaseAuthGateway()),
         ProxyProvider<ApiClient, AccountService>(
           update: (_, apiClient, previous) =>
               previous ?? AccountService(apiClient),
@@ -73,10 +90,14 @@ class HeartSyncApp extends StatelessWidget {
           update: (_, apiClient, previous) =>
               previous ?? SpaceService(apiClient),
         ),
-        ChangeNotifierProxyProvider3<
+        ProxyProvider<ApiClient, PetService>(
+          update: (_, apiClient, previous) => previous ?? PetService(apiClient),
+        ),
+        ChangeNotifierProxyProvider4<
           AuthService,
           AccountService,
           TokenStorage,
+          FirebaseAuthGateway,
           AuthProvider
         >(
           create: (context) => AuthProvider(
@@ -84,15 +105,17 @@ class HeartSyncApp extends StatelessWidget {
             accountService: context.read<AccountService>(),
             tokenStorage: context.read<TokenStorage>(),
             apiClient: context.read<ApiClient>(),
+            firebaseAuthGateway: context.read<FirebaseAuthGateway>(),
           ),
           update:
-              (context, authService, accountService, tokenStorage, previous) =>
+              (context, authService, accountService, tokenStorage, firebaseAuthGateway, previous) =>
                   previous ??
                   AuthProvider(
                     authService: authService,
                     accountService: accountService,
                     tokenStorage: tokenStorage,
                     apiClient: context.read<ApiClient>(),
+                    firebaseAuthGateway: firebaseAuthGateway,
                   ),
         ),
         ChangeNotifierProvider(create: (_) => CurrentUserProvider()),
@@ -165,6 +188,12 @@ class HeartSyncApp extends StatelessWidget {
           update: (_, milestoneService, previous) =>
               previous ?? MilestoneProvider(milestoneService: milestoneService),
         ),
+        ChangeNotifierProxyProvider<PetService, PetProvider>(
+          create: (context) =>
+              PetProvider(petService: context.read<PetService>()),
+          update: (_, petService, previous) =>
+              previous ?? PetProvider(petService: petService),
+        ),
         ChangeNotifierProxyProvider<HeartMapService, HeartMapProvider>(
           create: (context) =>
               HeartMapProvider(service: context.read<HeartMapService>()),
@@ -172,14 +201,15 @@ class HeartSyncApp extends StatelessWidget {
               previous ?? HeartMapProvider(service: heartMapService),
         ),
       ],
-      child: Consumer<AuthProvider>(
-        builder: (context, authProvider, _) {
+      child: Builder(
+        builder: (context) {
+          _router ??= createRouter(context.read<AuthProvider>());
           return _SocketConnector(
             child: MaterialApp.router(
               title: 'Heart Sync',
               debugShowCheckedModeBanner: false,
               theme: buildAppTheme(),
-              routerConfig: createRouter(authProvider),
+              routerConfig: _router!,
             ),
           );
         },

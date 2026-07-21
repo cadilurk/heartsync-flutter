@@ -70,8 +70,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final isLoading = context.select<AccountProvider, bool>((value) => value.isLoading);
+    // Reached two ways: a forced first-time onboarding step (profile not yet
+    // completed — no way back, must finish it) and an explicit "Sửa hồ sơ"
+    // edit action from AccountScreen (profile already completed — user should
+    // be able to cancel back out). Only show the back button for the latter.
+    final isEditing = context.select<AuthProvider, bool>((value) => value.isProfileCompleted);
     return Scaffold(
-      appBar: AppBar(title: const Text('Hồ sơ cá nhân')),
+      appBar: AppBar(
+        title: const Text('Hồ sơ cá nhân'),
+        leading: isEditing ? BackButton(onPressed: () => context.go('/home')) : null,
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),

@@ -157,7 +157,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      '${widget.product.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{3})(?=\d)'), (Match m) => '${m[1]}.')}đ',
+                                      '${widget.product.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')}đ',
                                       style: const TextStyle(
                                         color: AppColors.active,
                                         fontSize: 22,
@@ -305,7 +305,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                                     ),
                                                     const SizedBox(height: 2),
                                                     Text(
-                                                      '${item.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{3})(?=\d)'), (Match m) => '${m[1]}.')}đ',
+                                                      '${item.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')}đ',
                                                       style: const TextStyle(
                                                         color: AppColors.active,
                                                         fontSize: 12,

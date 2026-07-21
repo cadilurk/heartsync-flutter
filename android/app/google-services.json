@@ -1,26 +1,44 @@
 {
   "project_info": {
-    "project_number": "17249192566",
-    "project_id": "heartsync-aa57a",
-    "storage_bucket": "heartsync-aa57a.firebasestorage.app"
+    "project_number": "236247833644",
+    "project_id": "heartsync-fa971",
+    "storage_bucket": "heartsync-fa971.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:17249192566:android:4a46db5ba0ec58feaead57",
+        "mobilesdk_app_id": "1:236247833644:android:64a5b180d4e8f7fcb84589",
         "android_client_info": {
           "package_name": "com.example.heartsync_flutter"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "236247833644-bt5uvrmfu6tvnsrfrsr75pv76fvrcqg7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.heartsync_flutter",
+            "certificate_hash": "be013293e5938c9eb40657b745514da92bda3874"
+          }
+        },
+        {
+          "client_id": "236247833644-j54ban2jiv8ecvdrhqq2hkffiqmts05h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyAPVbD17b6fbFJl5I0iFmH06XneURWixXE"
+          "current_key": "AIzaSyDmJrtYzSp3DZ0UadzIGenU1Lg691FrJk4"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "236247833644-j54ban2jiv8ecvdrhqq2hkffiqmts05h.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

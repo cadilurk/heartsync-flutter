@@ -6,121 +6,9 @@ export default function createStoreRouter(db, auth, ok, fail) {
   const products = db.collection('products');
   const orders = db.collection('orders');
   const carts = db.collection('carts');
-
-  // Tự động seed sản phẩm nếu collection products trống
-  products.countDocuments().then(async (count) => {
-    if (count === 0) {
-      console.log('[Seed] Collection products trống. Đang nạp sản phẩm mẫu...');
-      const mockProductsList = [
-        {
-          id: 'p1',
-          name: 'Ly Sứ Đôi Hoa Hồng',
-          description: 'Cặp ly sứ cao cấp thiết kế dành riêng cho các cặp đôi. Thích hợp cho trà chiều ngọt ngào cùng partner.',
-          price: 180000,
-          imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600',
-          images: [
-            'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600',
-            'https://images.unsplash.com/photo-1576092768241-dec231879fc3?q=80&w=600',
-            'https://images.unsplash.com/photo-1536304997881-a372c179924b?q=80&w=600'
-          ],
-          rating: 4.8,
-          category: 'Quà tặng',
-          isDigital: false,
-          inStock: 15,
-          soldCount: 142
-        },
-        {
-          id: 'p2',
-          name: 'Móc Khóa Da Khắc Tên',
-          description: 'Móc khóa bằng da bò thật, khắc tên của bạn và đối phương. Một món quà nhỏ luôn bên mình.',
-          price: 95000,
-          imageUrl: 'https://images.unsplash.com/photo-1582139329536-e7284fece509?q=80&w=600',
-          images: [
-            'https://images.unsplash.com/photo-1582139329536-e7284fece509?q=80&w=600',
-            'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?q=80&w=600',
-            'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?q=80&w=600'
-          ],
-          rating: 4.6,
-          category: 'Quà tặng',
-          isDigital: false,
-          inStock: 45,
-          soldCount: 389
-        },
-        {
-          id: 'p3',
-          name: 'Voucher Hẹn Hò Nến & Hoa',
-          description: 'Một bữa tối lãng mạn dành cho 2 người tại nhà hàng sân vườn Rose Garden với hoa hồng và ánh nến lung linh.',
-          price: 850000,
-          imageUrl: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=600',
-          images: [
-            'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=600',
-            'https://images.unsplash.com/photo-1522413452208-996ff3f3e740?q=80&w=600',
-            'https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=600'
-          ],
-          rating: 4.9,
-          category: 'Hẹn hò',
-          isDigital: true,
-          inStock: 99,
-          soldCount: 78
-        },
-        {
-          id: 'p4',
-          name: 'Theme Ứng Dụng Rose Gold Premium',
-          description: 'Thay đổi giao diện ứng dụng HeartSync sang màu hồng vàng kim sa trọng, lấp lánh và đầy lãng mạn.',
-          price: 49000,
-          imageUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=600',
-          images: [
-            'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=600',
-            'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600',
-            'https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?q=80&w=600'
-          ],
-          rating: 4.7,
-          category: 'Vật phẩm số',
-          isDigital: true,
-          inStock: 9999,
-          soldCount: 1205
-        },
-        {
-          id: 'p5',
-          name: 'Bộ Bài Truth or Dare Couple',
-          description: '50 thử thách và câu hỏi sâu sắc giúp bạn và partner hiểu nhau hơn trong các buổi hẹn hò.',
-          price: 120000,
-          imageUrl: 'https://images.unsplash.com/photo-1606167668584-78701c57f13d?q=80&w=600',
-          images: [
-            'https://images.unsplash.com/photo-1606167668584-78701c57f13d?q=80&w=600',
-            'https://images.unsplash.com/photo-1585504198199-20277593b94f?q=80&w=600',
-            'https://images.unsplash.com/photo-1511193311914-0346f16efe90?q=80&w=600'
-          ],
-          rating: 4.9,
-          category: 'Hẹn hò',
-          isDigital: false,
-          inStock: 30,
-          soldCount: 64
-        },
-        {
-          id: 'p6',
-          name: 'Album Ảnh Kỷ Niệm Gỗ Hand-made',
-          description: 'Cuốn album gỗ sang trọng để bạn dán những tấm ảnh chụp chung ngọt ngào nhất của hai người.',
-          price: 250000,
-          imageUrl: 'https://images.unsplash.com/photo-1544816155-12df9643f363?q=80&w=600',
-          images: [
-            'https://images.unsplash.com/photo-1544816155-12df9643f363?q=80&w=600',
-            'https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600',
-            'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=600'
-          ],
-          rating: 4.5,
-          category: 'Quà tặng',
-          isDigital: false,
-          inStock: 8,
-          soldCount: 29
-        }
-      ];
-      await products.insertMany(mockProductsList);
-      console.log('[Seed] Đã nạp xong 6 sản phẩm mẫu vào MongoDB.');
-    }
-  }).catch(err => {
-    console.error('[Seed] Lỗi seed sản phẩm:', err);
-  });
+  const merchantWallets = db.collection('merchantWallets');
+  const commissionLogs = db.collection('commissionLogs');
+  const withdrawalRequests = db.collection('withdrawalRequests');
 
   // GET /products - Lấy danh sách sản phẩm từ MongoDB
   router.get('/products', async (_req, res) => {
@@ -157,7 +45,7 @@ export default function createStoreRouter(db, auth, ok, fail) {
 
   // POST /orders - Tạo đơn hàng thanh toán hoặc gửi quà qua cổng PayOS
   router.post('/orders', auth, async (req, res) => {
-    const { items, isGift, giftMessage } = req.body;
+    const { items, isGift, giftMessage, shippingName, shippingPhone, shippingAddress } = req.body;
     if (!items || !Array.isArray(items) || items.length === 0) {
       const error = fail('INVALID_INPUT');
       return res.status(error.status).json(error.body);
@@ -223,6 +111,9 @@ export default function createStoreRouter(db, auth, ok, fail) {
       isGift: isGift || false,
       status: status,
       giftMessage: giftMessage || null,
+      shippingName: shippingName || null,
+      shippingPhone: shippingPhone || null,
+      shippingAddress: shippingAddress || null,
       checkoutUrl: paymentLink.checkoutUrl,
       qrCode: paymentLink.qrCode || null,
       accountNumber: paymentLink.accountNumber || null,
@@ -311,6 +202,55 @@ export default function createStoreRouter(db, auth, ok, fail) {
           { id: req.params.id },
           { $set: { status: newStatus, updatedAt: now } }
         );
+
+        // ═══════════════════════════════════════════════════════
+        // TÍNH HOA HỒNG 15% REALTIME — Cộng 85% vào ví merchant
+        // ═══════════════════════════════════════════════════════
+        const COMMISSION_RATE = 0.15;
+        const merchantEarningMap = {}; // { merchantId: { earning, commission, itemTotal } }
+
+        for (const item of order.items) {
+          const itemProductId = item.product?.id || item.productId;
+          const productDoc = await products.findOne({ id: itemProductId });
+          const mId = productDoc?.merchantId;
+          // Chỉ tính hoa hồng cho sản phẩm của merchant (không tính platform)
+          if (mId && mId !== 'platform') {
+            const itemTotal = (item.product?.price || 0) * (item.quantity || 1);
+            const commission = Math.round(itemTotal * COMMISSION_RATE);
+            const merchantEarning = itemTotal - commission;
+            if (!merchantEarningMap[mId]) {
+              merchantEarningMap[mId] = { earning: 0, commission: 0, itemTotal: 0 };
+            }
+            merchantEarningMap[mId].earning += merchantEarning;
+            merchantEarningMap[mId].commission += commission;
+            merchantEarningMap[mId].itemTotal += itemTotal;
+          }
+        }
+
+        // Cập nhật ví merchant và ghi log hoa hồng
+        for (const [mId, data] of Object.entries(merchantEarningMap)) {
+          await merchantWallets.updateOne(
+            { merchantId: mId },
+            {
+              $inc: { balance: data.earning, totalEarned: data.earning },
+              $setOnInsert: { totalWithdrawn: 0, pendingWithdrawal: 0, createdAt: now },
+              $set: { updatedAt: now }
+            },
+            { upsert: true }
+          );
+          await commissionLogs.insertOne({
+            orderId: req.params.id,
+            orderCode: order.orderCode,
+            merchantId: mId,
+            grossAmount: data.itemTotal,
+            commission: data.commission,
+            merchantEarning: data.earning,
+            commissionRate: COMMISSION_RATE,
+            createdAt: now
+          });
+          console.log(`[Commission] ✅ Merchant '${mId}' nhận ${data.earning.toLocaleString('vi-VN')}đ (85%) từ đơn ${req.params.id} — Platform giữ ${data.commission.toLocaleString('vi-VN')}đ (15%)`);
+        }
+        // ═══════════════════════════════════════════════════════
 
         // Xoá các sản phẩm đã thanh toán khỏi giỏ hàng
         const checkedOutIds = order.items.map(item => item.product.id);
@@ -495,6 +435,130 @@ export default function createStoreRouter(db, auth, ok, fail) {
       return res.json(ok({ userId, items: [] }));
     } catch (error) {
       console.error('[DELETE /cart] Lỗi:', error);
+      const serverError = fail('SERVER_ERROR', 500);
+      return res.status(serverError.status).json(serverError.body);
+    }
+  });
+
+  // ── POST /orders/:id/cancel — Hủy đơn hàng đang PENDING ────────────────
+  router.post('/orders/:id/cancel', auth, async (req, res) => {
+    try {
+      const order = await orders.findOne({ id: req.params.id, userId: req.user._id.toString() });
+      if (!order) {
+        const error = fail('SERVER_ERROR', 404);
+        return res.status(error.status).json(error.body);
+      }
+      if (order.status !== 'PENDING') {
+        return res.status(400).json({ success: false, message: `Đơn hàng đang ở trạng thái '${order.status}', không thể hủy.` });
+      }
+
+      // Hủy link thanh toán trên PayOS (bỏ qua lỗi nếu link đã hết hạn)
+      try {
+        await payOS.paymentRequests.cancel(order.orderCode, 'Người dùng hủy đơn hàng');
+        console.log(`[Cancel] ✅ Hủy PayOS link thành công cho orderCode ${order.orderCode}`);
+      } catch (payosError) {
+        console.warn(`[Cancel] ⚠️ PayOS cancel thất bại (vẫn hủy trong DB):`, payosError.message);
+      }
+
+      const now = new Date();
+      await orders.updateOne(
+        { id: req.params.id },
+        { $set: { status: 'CANCELLED', updatedAt: now } }
+      );
+      console.log(`[Cancel] Đơn hàng ${req.params.id} đã bị hủy bởi user ${req.user._id}`);
+      return res.json(ok({ status: 'CANCELLED' }));
+    } catch (error) {
+      console.error(`[POST /orders/${req.params.id}/cancel] Lỗi:`, error);
+      const serverError = fail('SERVER_ERROR', 500);
+      return res.status(serverError.status).json(serverError.body);
+    }
+  });
+
+  // ── Merchant Wallet & Commission Endpoints ────────────────────────────────
+
+  // GET /merchant/:merchantId/wallet — Lấy số dư ví merchant
+  router.get('/merchant/:merchantId/wallet', async (req, res) => {
+    try {
+      const wallet = await merchantWallets.findOne({ merchantId: req.params.merchantId });
+      if (!wallet) {
+        return res.json(ok({
+          merchantId: req.params.merchantId,
+          balance: 0, totalEarned: 0, totalWithdrawn: 0, pendingWithdrawal: 0
+        }));
+      }
+      const { _id, ...rest } = wallet;
+      return res.json(ok(rest));
+    } catch (error) {
+      console.error(`[GET /merchant/:id/wallet] Lỗi:`, error);
+      const serverError = fail('SERVER_ERROR', 500);
+      return res.status(serverError.status).json(serverError.body);
+    }
+  });
+
+  // GET /merchant/:merchantId/commission-logs — Lịch sử hoa hồng từng đơn
+  router.get('/merchant/:merchantId/commission-logs', async (req, res) => {
+    try {
+      const logs = await commissionLogs
+        .find({ merchantId: req.params.merchantId })
+        .sort({ createdAt: -1 })
+        .limit(200)
+        .toArray();
+      return res.json(ok(logs.map(l => { const { _id, ...rest } = l; return rest; })));
+    } catch (error) {
+      console.error(`[GET /merchant/:id/commission-logs] Lỗi:`, error);
+      const serverError = fail('SERVER_ERROR', 500);
+      return res.status(serverError.status).json(serverError.body);
+    }
+  });
+
+  // POST /merchant/:merchantId/withdraw — Yêu cầu rút tiền
+  router.post('/merchant/:merchantId/withdraw', async (req, res) => {
+    const { amount, bankName, accountNumber, accountName } = req.body;
+    const withdrawAmount = Number(amount);
+    if (!withdrawAmount || withdrawAmount <= 0 || !bankName || !accountNumber || !accountName) {
+      const error = fail('INVALID_INPUT');
+      return res.status(error.status).json(error.body);
+    }
+    try {
+      const wallet = await merchantWallets.findOne({ merchantId: req.params.merchantId });
+      const balance = wallet?.balance || 0;
+      if (withdrawAmount > balance) {
+        return res.status(400).json({ success: false, message: 'Số dư ví không đủ để thực hiện rút tiền.' });
+      }
+      const now = new Date();
+      const withdrawalId = `WD_${now.getTime()}`;
+      await withdrawalRequests.insertOne({
+        id: withdrawalId,
+        merchantId: req.params.merchantId,
+        amount: withdrawAmount,
+        bankName, accountNumber, accountName,
+        status: 'PENDING',
+        createdAt: now, updatedAt: now
+      });
+      // Giảm số dư khả dụng, tăng số đang chờ rút
+      await merchantWallets.updateOne(
+        { merchantId: req.params.merchantId },
+        { $inc: { balance: -withdrawAmount, pendingWithdrawal: withdrawAmount, totalWithdrawn: withdrawAmount }, $set: { updatedAt: now } }
+      );
+      console.log(`[Withdraw] 🏦 Merchant '${req.params.merchantId}' yêu cầu rút ${withdrawAmount.toLocaleString('vi-VN')}đ`);
+      return res.json(ok({ id: withdrawalId, status: 'PENDING', amount: withdrawAmount }));
+    } catch (error) {
+      console.error(`[POST /merchant/:id/withdraw] Lỗi:`, error);
+      const serverError = fail('SERVER_ERROR', 500);
+      return res.status(serverError.status).json(serverError.body);
+    }
+  });
+
+  // GET /merchant/:merchantId/withdrawals — Danh sách yêu cầu rút tiền
+  router.get('/merchant/:merchantId/withdrawals', async (req, res) => {
+    try {
+      const list = await withdrawalRequests
+        .find({ merchantId: req.params.merchantId })
+        .sort({ createdAt: -1 })
+        .toArray();
+      return res.json(ok(list.map(w => { const { _id, ...rest } = w; return rest; })));
+    } catch (error) {
+      console.error(`[GET /merchant/:id/withdrawals] Lỗi:`, error);
       const serverError = fail('SERVER_ERROR', 500);
       return res.status(serverError.status).json(serverError.body);
     }

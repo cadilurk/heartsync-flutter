@@ -38,10 +38,20 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _submitGoogle() async {
+    setState(() => _error = null);
+    final auth = context.read<AuthProvider>();
+    await auth.loginWithGoogle();
+    if (!mounted) return;
+    if (auth.errorMessage != null) {
+      setState(() => _error = auth.errorMessage);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLoading = context.select<AuthProvider, bool>(
-      (value) => value.status == AuthStatus.loading,
+      (value) => value.isBusy,
     );
 
     return Scaffold(
@@ -95,6 +105,30 @@ class _LoginScreenState extends State<LoginScreen> {
             TextButton(
               onPressed: () => context.go('/register'),
               child: const Text('Chưa có tài khoản? Đăng ký'),
+            ),
+            TextButton(
+              onPressed: isLoading ? null : () => context.go('/forgot-password'),
+              child: const Text('Quên mật khẩu?'),
+            ),
+            const SizedBox(height: 12),
+            const Row(
+              children: [
+                Expanded(child: Divider()),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('hoặc'),
+                ),
+                Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: isLoading ? null : _submitGoogle,
+              child: const Text('Tiếp tục với Google'),
+            ),
+            TextButton(
+              onPressed: isLoading ? null : () => context.go('/login-phone'),
+              child: const Text('Tiếp tục bằng số điện thoại'),
             ),
           ],
         ),

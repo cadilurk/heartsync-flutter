@@ -16,6 +16,9 @@ class ErrorMessages {
     'PARTNER_ALREADY_PAIRED': 'Người dùng này đã được ghép đôi.',
     'RELATIONSHIP_NOT_FOUND': 'Không tìm thấy kết nối partner.',
     'SERVER_ERROR': 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.',
+    'FIREBASE_TOKEN_INVALID': 'Không thể xác thực với Google/Firebase. Vui lòng thử lại.',
+    'INVALID_OR_EXPIRED_CODE': 'Mã xác thực không đúng hoặc đã hết hạn.',
+    'CODE_RECENTLY_SENT': 'Bạn vừa yêu cầu mã. Vui lòng thử lại sau ít phút.',
   };
 
   static String friendly(String code, [String? fallback]) {

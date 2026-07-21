@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_exception.dart';
 import '../models/cart_item.dart';
 import '../models/order.dart';
@@ -35,12 +34,10 @@ class StoreProvider extends ChangeNotifier {
       notifyListeners();
 
       products = await _storeService.fetchProducts();
-      if (!ApiConstants.useMockApi) {
-        try {
-          cartItems = await _storeService.fetchCart();
-        } catch (_) {
-          // Cart API lỗi không sao, tiếp tục với cart rỗng
-        }
+      try {
+        cartItems = await _storeService.fetchCart();
+      } catch (_) {
+        // Cart API lỗi không sao, tiếp tục với cart rỗng
       }
       _filterProducts();
     } on ApiException catch (e) {
@@ -85,17 +82,15 @@ class StoreProvider extends ChangeNotifier {
     }
     notifyListeners();
 
-    if (!ApiConstants.useMockApi) {
-      try {
-        final updated = await _storeService.addToCartApi(product.id, quantity);
-        if (updated.isNotEmpty) {
-          cartItems = updated;
-          notifyListeners();
-        }
-        // Nếu API trả rỗng list (backend chưa có /cart) → giữ local cart
-      } catch (_) {
-        // Backend offline → giữ local cart, không rollback
+    try {
+      final updated = await _storeService.addToCartApi(product.id, quantity);
+      if (updated.isNotEmpty) {
+        cartItems = updated;
+        notifyListeners();
       }
+      // Nếu API trả rỗng list (backend chưa có /cart) → giữ local cart
+    } catch (_) {
+      // Backend offline → giữ local cart, không rollback
     }
   }
 
@@ -107,12 +102,10 @@ class StoreProvider extends ChangeNotifier {
       cartItems.removeAt(index);
       notifyListeners();
 
-      if (!ApiConstants.useMockApi) {
-        try {
-          await _storeService.updateCartQuantityApi(productId, 0);
-        } catch (_) {
-          // Backend offline → giữ local state
-        }
+      try {
+        await _storeService.updateCartQuantityApi(productId, 0);
+      } catch (_) {
+        // Backend offline → giữ local state
       }
       return;
     }
@@ -120,12 +113,10 @@ class StoreProvider extends ChangeNotifier {
     cartItems[index] = cartItems[index].copyWith(quantity: quantity);
     notifyListeners();
 
-    if (!ApiConstants.useMockApi) {
-      try {
-        await _storeService.updateCartQuantityApi(productId, quantity);
-      } catch (_) {
-        // Backend offline → giữ local state
-      }
+    try {
+      await _storeService.updateCartQuantityApi(productId, quantity);
+    } catch (_) {
+      // Backend offline → giữ local state
     }
   }
 
@@ -135,12 +126,10 @@ class StoreProvider extends ChangeNotifier {
     cartItems.removeAt(index);
     notifyListeners();
 
-    if (!ApiConstants.useMockApi) {
-      try {
-        await _storeService.updateCartQuantityApi(productId, 0);
-      } catch (_) {
-        // Backend offline → giữ local state
-      }
+    try {
+      await _storeService.updateCartQuantityApi(productId, 0);
+    } catch (_) {
+      // Backend offline → giữ local state
     }
   }
 
@@ -148,12 +137,10 @@ class StoreProvider extends ChangeNotifier {
     cartItems.clear();
     notifyListeners();
 
-    if (!ApiConstants.useMockApi) {
-      try {
-        await _storeService.clearCartApi();
-      } catch (_) {
-        // Backend offline → giữ local state (cart đã xóa local rồi)
-      }
+    try {
+      await _storeService.clearCartApi();
+    } catch (_) {
+      // Backend offline → giữ local state (cart đã xóa local rồi)
     }
   }
 
@@ -162,6 +149,9 @@ class StoreProvider extends ChangeNotifier {
     required List<CartItem> items,
     required bool isGift,
     String? giftMessage,
+    String? shippingName,
+    String? shippingPhone,
+    String? shippingAddress,
   }) async {
     if (items.isEmpty) return null;
     try {
@@ -173,6 +163,9 @@ class StoreProvider extends ChangeNotifier {
         items: items,
         isGift: isGift,
         giftMessage: giftMessage,
+        shippingName: shippingName,
+        shippingPhone: shippingPhone,
+        shippingAddress: shippingAddress,
       );
 
       // Loại bỏ các sản phẩm đã mua khỏi giỏ hàng cục bộ
@@ -231,6 +224,43 @@ class StoreProvider extends ChangeNotifier {
         print('Lỗi verify đơn hàng: $e');
       }
       return null;
+    }
+  }
+
+  /// Hủy đơn hàng PENDING — gọi khi user bấm "Hủy đơn"
+  Future<bool> cancelOrder(String orderId) async {
+    try {
+      final status = await _storeService.cancelOrder(orderId);
+      if (status == 'CANCELLED') {
+        final index = orders.indexWhere((o) => o.id == orderId);
+        if (index >= 0) {
+          final old = orders[index];
+          orders[index] = Order(
+            id: old.id,
+            items: old.items,
+            totalAmount: old.totalAmount,
+            orderDate: old.orderDate,
+            isGift: old.isGift,
+            status: 'CANCELLED',
+            giftMessage: old.giftMessage,
+            checkoutUrl: old.checkoutUrl,
+            qrCode: old.qrCode,
+            accountNumber: old.accountNumber,
+            accountName: old.accountName,
+            bin: old.bin,
+            orderCode: old.orderCode,
+            shippingName: old.shippingName,
+            shippingPhone: old.shippingPhone,
+            shippingAddress: old.shippingAddress,
+          );
+          notifyListeners();
+        }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      if (kDebugMode) print('Lỗi hủy đơn hàng: $e');
+      return false;
     }
   }
 }

@@ -49,7 +49,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       (value) => value.status == AuthStatus.loading,
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('Tạo tài khoản')),
+      appBar: AppBar(
+        title: const Text('Tạo tài khoản'),
+        leading: BackButton(onPressed: () => context.go('/login')),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),

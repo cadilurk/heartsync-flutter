@@ -4,6 +4,7 @@ class User {
   final String? phone;
   final String authProvider;
   final String status;
+  final bool emailVerified;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -13,6 +14,7 @@ class User {
     this.phone,
     this.authProvider = 'email',
     this.status = 'active',
+    this.emailVerified = true,
     this.createdAt,
     this.updatedAt,
   });
@@ -24,6 +26,9 @@ class User {
       phone: json['phone']?.toString(),
       authProvider: json['authProvider']?.toString() ?? 'email',
       status: json['status']?.toString() ?? 'active',
+      // Fail-open: any payload lacking this field (e.g. a partner object
+      // elsewhere) should never wrongly gate someone behind email verification.
+      emailVerified: json['emailVerified'] as bool? ?? true,
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? ''),
     );
@@ -35,6 +40,7 @@ class User {
         'phone': phone,
         'authProvider': authProvider,
         'status': status,
+        'emailVerified': emailVerified,
         'createdAt': createdAt?.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
       };
