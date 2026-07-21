@@ -40,31 +40,40 @@ class NotificationService {
   Future<void> showAlarmNotification({
     required String partnerName,
     required String signalType,
+    String? signalId,
   }) async {
+    // Đảm bảo channel đã tạo (khi gọi từ isolate nền có thể chưa initialize()).
+    await initialize();
+
     final (emoji, message, subLabel) = switch (signalType) {
       'miss' => ('🥺', 'nhớ bạn lắm...', 'Nhớ lắm'),
       'care' => ('🤗', 'đang nghĩ đến bạn', 'Nghĩ đến em'),
       _ => ('💕', 'yêu bạn lắm...', 'Yêu lắm'),
     };
 
-    final avatarBytes = await _buildAvatarBytes(partnerName);
-    final avatarBitmap = ByteArrayAndroidBitmap(avatarBytes);
-    final avatarIcon = ByteArrayAndroidIcon(avatarBytes);
-
-    final sender = Person(
-      name: partnerName,
-      icon: avatarIcon,
-      important: true,
-    );
-
-    final msgStyle = MessagingStyleInformation(
-      sender,
-      conversationTitle: 'HeartSync',
-      groupConversation: false,
-      messages: [
-        Message('$emoji  $message', DateTime.now(), sender),
-      ],
-    );
+    // Avatar dựng bằng Canvas có thể fail trong isolate nền → bỏ qua, dùng no-avatar.
+    ByteArrayAndroidBitmap? avatarBitmap;
+    MessagingStyleInformation? msgStyle;
+    try {
+      final avatarBytes = await _buildAvatarBytes(partnerName);
+      avatarBitmap = ByteArrayAndroidBitmap(avatarBytes);
+      final sender = Person(
+        name: partnerName,
+        icon: ByteArrayAndroidIcon(avatarBytes),
+        important: true,
+      );
+      msgStyle = MessagingStyleInformation(
+        sender,
+        conversationTitle: 'HeartSync',
+        groupConversation: false,
+        messages: [
+          Message('$emoji  $message', DateTime.now(), sender),
+        ],
+      );
+    } catch (_) {
+      avatarBitmap = null;
+      msgStyle = null;
+    }
 
     final androidDetails = AndroidNotificationDetails(
       'heart_alarm',
@@ -86,8 +95,12 @@ class NotificationService {
       fullScreenIntent: false,
     );
 
+    // Cùng signalId → cùng id → 2 nguồn (socket + FCM background isolate) gộp
+    // làm 1 notification thay vì hiện trùng. Tín hiệu khác nhau thì stack riêng.
+    final notificationId = (signalId?.hashCode ?? 0) & 0x7fffffff;
+
     await _plugin.show(
-      0,
+      notificationId,
       '$partnerName $emoji',
       message,
       NotificationDetails(android: androidDetails),
