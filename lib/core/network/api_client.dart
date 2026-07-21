@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
@@ -138,6 +139,8 @@ class MockApiBackend {
   final Map<String, Map<String, dynamic>> _pairingCodes = {};
   final Map<String, Map<String, dynamic>> _heartLocationsByUserId = {};
   final List<Map<String, dynamic>> _heartLocationHistory = [];
+  final Map<String, String> _emailVerificationCodes = {};
+  final Map<String, String> _passwordResetCodes = {};
 
   final List<Map<String, dynamic>> _mockMilestones = [
     {
@@ -213,6 +216,11 @@ class MockApiBackend {
     if (method == 'POST' && path == '/auth/register') return _register(body ?? {});
     if (method == 'POST' && path == '/auth/login') return _login(body ?? {});
     if (method == 'POST' && path == '/auth/logout') return _ok(true);
+    if (method == 'POST' && path == '/auth/password/forgot') return _forgotPassword(body ?? {});
+    if (method == 'POST' && path == '/auth/password/reset') return _resetPassword(body ?? {});
+    if (method == 'POST' && path == '/auth/email/send-code') return _sendEmailCode(body ?? {});
+    if (method == 'POST' && path == '/auth/email/verify') return _verifyEmailCode(body ?? {});
+    if (method == 'POST' && path == '/auth/firebase') return _mockFirebaseLogin(body ?? {});
 
     final user = _userFromToken(token);
     if (user == null) return _error('UNAUTHENTICATED');
@@ -257,6 +265,7 @@ class MockApiBackend {
       'phone': null,
       'authProvider': 'email',
       'status': 'active',
+      'emailVerified': false,
       'password': password,
       'createdAt': now.toIso8601String(),
       'updatedAt': now.toIso8601String(),
@@ -277,6 +286,121 @@ class MockApiBackend {
     if (user == null || user['password'] != password) {
       return _error('INVALID_EMAIL_OR_PASSWORD');
     }
+    return _ok({
+      'accessToken': 'mock_access_${user['id']}',
+      'refreshToken': 'mock_refresh_${user['id']}',
+      'user': _publicUser(user),
+    });
+  }
+
+  Map<String, dynamic> _sendEmailCode(Map<String, dynamic> body) {
+    final email = body['email']?.toString().trim().toLowerCase() ?? '';
+    final user = _usersByEmail[email];
+    if (user != null && user['emailVerified'] != true) {
+      _emailVerificationCodes[email] = '123456';
+      debugPrint('[mock] email verify code for $email: 123456');
+    }
+    // Always ok — matches the real backend, which never confirms/denies
+    // whether the email exists.
+    return _ok(true);
+  }
+
+  Map<String, dynamic> _verifyEmailCode(Map<String, dynamic> body) {
+    final email = body['email']?.toString().trim().toLowerCase() ?? '';
+    final code = body['code']?.toString() ?? '';
+    final user = _usersByEmail[email];
+    if (user == null || code.isEmpty || code != _emailVerificationCodes[email]) {
+      return _error('INVALID_OR_EXPIRED_CODE');
+    }
+    user['emailVerified'] = true;
+    _emailVerificationCodes.remove(email);
+    return _ok({
+      'accessToken': 'mock_access_${user['id']}',
+      'refreshToken': 'mock_refresh_${user['id']}',
+      'user': _publicUser(user),
+    });
+  }
+
+  Map<String, dynamic> _forgotPassword(Map<String, dynamic> body) {
+    final email = body['email']?.toString().trim().toLowerCase() ?? '';
+    if (_usersByEmail.containsKey(email)) {
+      _passwordResetCodes[email] = '123456';
+      debugPrint('[mock] password reset code for $email: 123456');
+    }
+    // Always ok — no user enumeration, matches the real backend contract.
+    return _ok(true);
+  }
+
+  Map<String, dynamic> _resetPassword(Map<String, dynamic> body) {
+    final email = body['email']?.toString().trim().toLowerCase() ?? '';
+    final code = body['code']?.toString() ?? '';
+    final newPassword = body['newPassword']?.toString() ?? '';
+    final user = _usersByEmail[email];
+    if (user == null || code.isEmpty || code != _passwordResetCodes[email]) {
+      return _error('INVALID_OR_EXPIRED_CODE');
+    }
+    user['password'] = newPassword;
+    _passwordResetCodes.remove(email);
+    return _ok({
+      'accessToken': 'mock_access_${user['id']}',
+      'refreshToken': 'mock_refresh_${user['id']}',
+      'user': _publicUser(user),
+    });
+  }
+
+  /// The real Google/Firebase SDKs are not mocked (this class only intercepts
+  /// the HTTP layer), so a genuine Firebase ID token arrives here even in
+  /// `mock://` dev mode. Decode its payload to recover an identity claim; if
+  /// that fails, fall back to a deterministic synthetic identity so repeated
+  /// calls with the same token still resolve to the same mock user.
+  Map<String, dynamic> _mockFirebaseLogin(Map<String, dynamic> body) {
+    final idToken = body['idToken']?.toString() ?? '';
+    final provider = body['provider']?.toString() ?? 'google';
+
+    String? email;
+    String? phone;
+    try {
+      final segments = idToken.split('.');
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(segments[1]))),
+      ) as Map<String, dynamic>;
+      email = payload['email']?.toString();
+      phone = payload['phone_number']?.toString();
+    } catch (_) {
+      // Not a real/parseable Firebase ID token — handled by the synthetic
+      // fallback below.
+    }
+
+    if (email == null && phone == null) {
+      final hash = idToken.hashCode.toUnsigned(32).toRadixString(16);
+      if (provider == 'phone') {
+        phone = '+84mock$hash';
+      } else {
+        email = 'mock_$hash@firebase.local';
+      }
+    }
+
+    // _usersByEmail is the only user registry this mock backend has; reuse it
+    // keyed by email when available, or by phone otherwise.
+    final key = (email ?? phone ?? 'unknown').toLowerCase();
+    var user = _usersByEmail[key];
+    if (user == null) {
+      final now = DateTime.now().toUtc();
+      user = {
+        'id': 'user_${_usersByEmail.length + 1}',
+        'email': email ?? '',
+        'phone': phone,
+        'authProvider': provider,
+        'status': 'active',
+        // Firebase (Google/phone OTP) already verified this identity upstream.
+        'emailVerified': true,
+        'password': null,
+        'createdAt': now.toIso8601String(),
+        'updatedAt': now.toIso8601String(),
+      };
+      _usersByEmail[key] = user;
+    }
+
     return _ok({
       'accessToken': 'mock_access_${user['id']}',
       'refreshToken': 'mock_refresh_${user['id']}',

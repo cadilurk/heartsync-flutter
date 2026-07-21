@@ -4,26 +4,42 @@ import 'package:provider/provider.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/otp_code_field.dart';
 
-class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+class ResetPasswordScreen extends StatefulWidget {
+  const ResetPasswordScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _displayNameController = TextEditingController();
+  final _codeController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   String? _error;
+  bool _prefilledEmail = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Pre-fill (but keep editable) from the email passed by ForgotPasswordScreen;
+    // only run once so we don't clobber user edits on subsequent rebuilds.
+    if (!_prefilledEmail) {
+      final extra = GoRouterState.of(context).extra;
+      if (extra is String) {
+        _emailController.text = extra;
+      }
+      _prefilledEmail = true;
+    }
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
-    _displayNameController.dispose();
+    _codeController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
@@ -33,10 +49,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     try {
       setState(() => _error = null);
-      await context.read<AuthProvider>().register(
+      await context.read<AuthProvider>().resetPassword(
             email: _emailController.text,
-            password: _passwordController.text,
-            displayName: _displayNameController.text,
+            code: _codeController.text,
+            newPassword: _passwordController.text,
           );
     } on ApiException catch (error) {
       setState(() => _error = error.message);
@@ -45,12 +61,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = context.select<AuthProvider, bool>(
-      (value) => value.status == AuthStatus.loading,
-    );
+    final isLoading = context.select<AuthProvider, bool>((value) => value.isBusy);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tạo tài khoản'),
+        title: const Text('Đặt lại mật khẩu'),
         leading: BackButton(onPressed: () => context.go('/login')),
       ),
       body: SafeArea(
@@ -72,15 +87,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _displayNameController,
-                    decoration: const InputDecoration(labelText: 'Tên hiển thị (tuỳ chọn)'),
-                  ),
+                  OtpCodeField(controller: _codeController, labelText: 'Mã xác nhận'),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Mật khẩu'),
+                    decoration: const InputDecoration(labelText: 'Mật khẩu mới'),
                     validator: (value) =>
                         (value?.length ?? 0) < 6 ? 'Mật khẩu tối thiểu 6 ký tự.' : null,
                   ),
@@ -107,11 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       dimension: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Đăng ký'),
-            ),
-            TextButton(
-              onPressed: () => context.go('/login'),
-              child: const Text('Đã có tài khoản? Đăng nhập'),
+                  : const Text('Đặt lại mật khẩu'),
             ),
           ],
         ),

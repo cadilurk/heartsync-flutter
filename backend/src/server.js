@@ -10,9 +10,11 @@ import { createServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { MongoClient, ObjectId } from 'mongodb';
 import { Server } from 'socket.io';
+import { randomInt, createHash } from 'crypto';
 import createSpaceRouter from './spaceRouter.js';
 import createStoreRouter from './storeRouter.js';
 import createChallengeRouter from './challengeRouter.js';
+import { sendVerificationCodeEmail, sendPasswordResetCodeEmail } from './mailer.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,6 +41,7 @@ app.use('/', createSpaceRouter(db, auth, ok, fail));
 app.use('/', createChallengeRouter(db, auth, ok, fail));
 
 let firebaseMessaging = null;
+let firebaseAuth = null;
 if (fs.existsSync('./firebase-service-account.json')) {
   try {
     const serviceAccount = JSON.parse(fs.readFileSync('./firebase-service-account.json', 'utf8'));
@@ -46,6 +49,7 @@ if (fs.existsSync('./firebase-service-account.json')) {
       credential: admin.credential.cert(serviceAccount)
     });
     firebaseMessaging = admin.messaging();
+    firebaseAuth = admin.auth();
     console.log('Firebase Admin SDK initialized successfully.');
   } catch (error) {
     console.error('Failed to initialize Firebase Admin SDK:', error);
@@ -62,14 +66,22 @@ const signals = db.collection('signals');
 const milestones = db.collection('milestones');
 const heartLocations = db.collection('heartLocations');
 const heartLocationHistory = db.collection('heartLocationHistory');
+const verificationCodes = db.collection('verificationCodes');
 
-await users.createIndex({ email: 1 }, { unique: true });
+await ensureUniquePartialIndex(users, 'email');
+await ensureUniquePartialIndex(users, 'phone');
+await users.updateMany(
+  { emailVerified: { $exists: false }, email: { $type: 'string' } },
+  { $set: { emailVerified: true } }
+);
 await pairingCodes.createIndex({ code: 1 }, { unique: true });
 await pairingCodes.createIndex({ expiredAt: 1 }, { expireAfterSeconds: 3600 });
 await signals.createIndex({ toUserId: 1, readAt: 1 });
 await signals.createIndex({ sentAt: -1 });
 await heartLocations.createIndex({ relationshipId: 1, userId: 1 }, { unique: true });
 await heartLocationHistory.createIndex({ relationshipId: 1, recordedAt: -1 });
+await verificationCodes.createIndex({ userId: 1, purpose: 1 });
+await verificationCodes.createIndex({ expiredAt: 1 }, { expireAfterSeconds: 3600 });
 
 function ok(data) {
   return { success: true, data, error: null };
@@ -89,6 +101,9 @@ function fail(code, status = 400) {
     USER_ALREADY_PAIRED: 'Tài khoản của bạn đã được ghép đôi.',
     PARTNER_ALREADY_PAIRED: 'Người dùng này đã được ghép đôi.',
     RELATIONSHIP_NOT_FOUND: 'Không tìm thấy kết nối partner.',
+    FIREBASE_TOKEN_INVALID: 'Xác thực Firebase không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.',
+    INVALID_OR_EXPIRED_CODE: 'Mã xác thực không đúng hoặc đã hết hạn.',
+    CODE_RECENTLY_SENT: 'Bạn vừa yêu cầu mã. Vui lòng thử lại sau ít phút.',
     SERVER_ERROR: 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.'
   };
   return { status, body: { success: false, data: null, error: { code, message: messages[code] || messages.SERVER_ERROR } } };
@@ -98,9 +113,10 @@ function publicUser(user) {
   if (!user) return null;
   return {
     id: user._id.toString(),
-    email: user.email,
+    email: user.email ?? null,
     phone: user.phone ?? null,
     authProvider: user.authProvider ?? 'email',
+    emailVerified: user.emailVerified ?? false,
     status: user.status ?? 'active',
     createdAt: user.createdAt?.toISOString?.() ?? user.createdAt,
     updatedAt: user.updatedAt?.toISOString?.() ?? user.updatedAt
@@ -157,6 +173,21 @@ function signTokens(userId) {
   };
 }
 
+async function ensureUniquePartialIndex(collection, field) {
+  const wanted = { [field]: { $type: 'string' } };
+  const name = `${field}_1`;
+  const existing = await collection.indexes();
+  const current = existing.find(idx => idx.name === name);
+  const alreadyCorrect = current?.unique &&
+    JSON.stringify(current.partialFilterExpression) === JSON.stringify(wanted);
+  if (current && !alreadyCorrect) {
+    await collection.dropIndex(name);
+  }
+  if (!current || !alreadyCorrect) {
+    await collection.createIndex({ [field]: 1 }, { unique: true, partialFilterExpression: wanted });
+  }
+}
+
 async function auth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -191,6 +222,32 @@ function randomCode() {
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
+function randomNumericCode() {
+  return String(randomInt(0, 1_000_000)).padStart(6, '0');
+}
+
+function hashCode(code) {
+  return createHash('sha256').update(code).digest('hex');
+}
+
+async function hasRecentCode(userId, purpose, windowMs = 60_000) {
+  const cutoff = new Date(Date.now() - windowMs);
+  return !!(await verificationCodes.findOne({ userId, purpose, createdAt: { $gt: cutoff } }));
+}
+
+async function issueVerificationCode(user, purpose) {
+  const now = new Date();
+  const code = randomNumericCode();
+  await verificationCodes.deleteMany({ userId: user._id, purpose });
+  await verificationCodes.insertOne({
+    userId: user._id, email: user.email, purpose,
+    codeHash: hashCode(code), attempts: 0,
+    expiredAt: new Date(now.getTime() + 10 * 60 * 1000), createdAt: now
+  });
+  const send = purpose === 'email_verify' ? sendVerificationCodeEmail : sendPasswordResetCodeEmail;
+  send(user.email, code).catch(err => console.error(`Failed to send ${purpose} email to`, user.email, err));
+}
+
 app.get('/health', (_req, res) => res.json(ok({ status: 'ok' })));
 
 app.post('/auth/register', async (req, res) => {
@@ -208,6 +265,7 @@ app.post('/auth/register', async (req, res) => {
       email,
       passwordHash,
       authProvider: 'email',
+      emailVerified: false,
       status: 'active',
       fcmTokens: [],
       createdAt: now,
@@ -219,6 +277,7 @@ app.post('/auth/register', async (req, res) => {
       await profiles.insertOne({ userId, displayName, createdAt: now, updatedAt: now });
     }
     const user = await users.findOne({ _id: userId });
+    await issueVerificationCode(user, 'email_verify');
     return res.json(ok({ ...signTokens(userId.toString()), user: publicUser(user) }));
   } catch (error) {
     if (error.code === 11000) {
@@ -246,6 +305,204 @@ app.post('/auth/login', async (req, res) => {
 });
 
 app.post('/auth/logout', auth, (_req, res) => res.json(ok(true)));
+
+app.post('/auth/firebase', async (req, res) => {
+  const idToken = String(req.body.idToken || '');
+  const provider = req.body.provider;
+  if (!idToken || !['google', 'phone'].includes(provider)) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  if (!firebaseAuth) {
+    const error = fail('SERVER_ERROR', 500);
+    return res.status(error.status).json(error.body);
+  }
+
+  let decoded;
+  try {
+    decoded = await firebaseAuth.verifyIdToken(idToken);
+  } catch {
+    const error = fail('FIREBASE_TOKEN_INVALID', 401);
+    return res.status(error.status).json(error.body);
+  }
+
+  const now = new Date();
+  let filter, setFields, setOnInsertFields;
+
+  if (provider === 'phone') {
+    const phone = decoded.phone_number ? String(decoded.phone_number) : '';
+    if (!phone) {
+      const error = fail('FIREBASE_TOKEN_INVALID', 401);
+      return res.status(error.status).json(error.body);
+    }
+    filter = { phone };
+    setFields = { updatedAt: now };
+    setOnInsertFields = {
+      // No email on a phone-only account, so there's nothing to verify —
+      // default true so the emailVerified gate never blocks these users.
+      authProvider: 'phone', email: null, passwordHash: null,
+      emailVerified: true, status: 'active', fcmTokens: [], createdAt: now
+    };
+  } else {
+    const email = decoded.email ? String(decoded.email).trim().toLowerCase() : '';
+    if (!email) {
+      const error = fail('FIREBASE_TOKEN_INVALID', 401);
+      return res.status(error.status).json(error.body);
+    }
+    filter = { email };
+    setFields = { updatedAt: now };
+    setOnInsertFields = {
+      authProvider: 'google', phone: null, passwordHash: null,
+      status: 'active', fcmTokens: [], createdAt: now
+    };
+    // emailVerified must live in EXACTLY ONE of these two operators — never both, never neither.
+    // If both $set and $setOnInsert touch the same field path, MongoDB throws a conflict error.
+    if (decoded.email_verified) {
+      setFields.emailVerified = true;
+    } else {
+      setOnInsertFields.emailVerified = false;
+    }
+  }
+
+  const update = { $set: setFields, $setOnInsert: setOnInsertFields };
+
+  try {
+    const user = await users.findOneAndUpdate(filter, update, { upsert: true, returnDocument: 'after' });
+    if (user.status !== 'active') {
+      const error = fail('ACCOUNT_DISABLED', 403);
+      return res.status(error.status).json(error.body);
+    }
+    return res.json(ok({ ...signTokens(user._id.toString()), user: publicUser(user) }));
+  } catch (error) {
+    if (error.code === 11000) {
+      // Lost a concurrent upsert race — the doc now exists from the other request; just log in.
+      const user = await users.findOne(filter);
+      if (user) return res.json(ok({ ...signTokens(user._id.toString()), user: publicUser(user) }));
+    }
+    console.error('Error in POST /auth/firebase:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+app.post('/auth/email/send-code', async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!email.includes('@')) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const user = await users.findOne({ email });
+    if (user && !user.emailVerified) {
+      if (await hasRecentCode(user._id, 'email_verify')) {
+        const error = fail('CODE_RECENTLY_SENT', 429);
+        return res.status(error.status).json(error.body);
+      }
+      await issueVerificationCode(user, 'email_verify');
+    }
+    return res.json(ok(true));
+  } catch (error) {
+    console.error('Error in POST /auth/email/send-code:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+app.post('/auth/email/verify', async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const code = String(req.body.code || '').trim();
+  if (!email.includes('@') || !/^\d{6}$/.test(code)) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const user = await users.findOne({ email });
+    const record = user && await verificationCodes.findOne({ userId: user._id, purpose: 'email_verify' });
+
+    if (!user || !record || record.expiredAt <= new Date() || record.attempts >= 5) {
+      const error = fail('INVALID_OR_EXPIRED_CODE');
+      return res.status(error.status).json(error.body);
+    }
+    if (record.codeHash !== hashCode(code)) {
+      await verificationCodes.updateOne({ _id: record._id }, { $inc: { attempts: 1 } });
+      const error = fail('INVALID_OR_EXPIRED_CODE');
+      return res.status(error.status).json(error.body);
+    }
+    if (user.status !== 'active') {
+      const error = fail('ACCOUNT_DISABLED', 403);
+      return res.status(error.status).json(error.body);
+    }
+
+    await users.updateOne({ _id: user._id }, { $set: { emailVerified: true, updatedAt: new Date() } });
+    await verificationCodes.deleteOne({ _id: record._id });
+    const updatedUser = await users.findOne({ _id: user._id });
+    return res.json(ok({ ...signTokens(user._id.toString()), user: publicUser(updatedUser) }));
+  } catch (error) {
+    console.error('Error in POST /auth/email/verify:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+app.post('/auth/password/forgot', async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!email.includes('@')) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const user = await users.findOne({ email });
+    if (user && user.passwordHash && !(await hasRecentCode(user._id, 'password_reset'))) {
+      await issueVerificationCode(user, 'password_reset');
+    }
+    return res.json(ok(true)); // ALWAYS this — found, not-found, no-password, cooldown all look identical
+  } catch (error) {
+    console.error('Error in POST /auth/password/forgot:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
+
+app.post('/auth/password/reset', async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const code = String(req.body.code || '').trim();
+  const newPassword = String(req.body.newPassword || '');
+  if (!email.includes('@') || !/^\d{6}$/.test(code) || newPassword.length < 6) {
+    const error = fail('INVALID_INPUT');
+    return res.status(error.status).json(error.body);
+  }
+  try {
+    const user = await users.findOne({ email });
+    const record = user && await verificationCodes.findOne({ userId: user._id, purpose: 'password_reset' });
+
+    if (!user || !record || record.expiredAt <= new Date() || record.attempts >= 5) {
+      const error = fail('INVALID_OR_EXPIRED_CODE');
+      return res.status(error.status).json(error.body);
+    }
+    if (record.codeHash !== hashCode(code)) {
+      await verificationCodes.updateOne({ _id: record._id }, { $inc: { attempts: 1 } });
+      const error = fail('INVALID_OR_EXPIRED_CODE');
+      return res.status(error.status).json(error.body);
+    }
+    if (user.status !== 'active') {
+      const error = fail('ACCOUNT_DISABLED', 403);
+      return res.status(error.status).json(error.body);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await users.updateOne(
+      { _id: user._id },
+      { $set: { passwordHash, emailVerified: true, updatedAt: new Date() } }
+    );
+    await verificationCodes.deleteOne({ _id: record._id });
+    const updatedUser = await users.findOne({ _id: user._id });
+    return res.json(ok({ ...signTokens(user._id.toString()), user: publicUser(updatedUser) }));
+  } catch (error) {
+    console.error('Error in POST /auth/password/reset:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(500).json(serverError.body);
+  }
+});
 
 app.get('/account/me', auth, async (req, res) => {
   const relationship = await activeRelationshipFor(req.user._id);

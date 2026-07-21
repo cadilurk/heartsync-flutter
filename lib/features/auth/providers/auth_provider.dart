@@ -10,9 +10,11 @@ import '../../../core/notifications/fcm_service.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../account/services/account_service.dart';
 import '../models/current_user_session.dart';
+import '../models/firebase_login_request.dart';
 import '../models/login_request.dart';
 import '../models/register_request.dart';
 import '../services/auth_service.dart';
+import '../services/firebase_auth_gateway.dart';
 
 enum AuthStatus { unknown, unauthenticated, authenticated, loading, error }
 
@@ -21,6 +23,7 @@ class AuthProvider extends ChangeNotifier {
   final AccountService _accountService;
   final TokenStorage _tokenStorage;
   final ApiClient _apiClient;
+  final FirebaseAuthGateway _firebaseAuthGateway;
 
   AuthStatus status = AuthStatus.unknown;
   CurrentUserSession session = CurrentUserSession.empty;
@@ -29,21 +32,39 @@ class AuthProvider extends ChangeNotifier {
   int _retryCount = 0;
   static const int _maxRetries = 3;
 
+  String? _phoneVerificationId;
+  int? _phoneForceResendingToken;
+  String? _pendingPhoneNumber;
+  bool _auxLoading = false;
+
   AuthProvider({
     required AuthService authService,
     required AccountService accountService,
     required TokenStorage tokenStorage,
     required ApiClient apiClient,
+    required FirebaseAuthGateway firebaseAuthGateway,
   })  : _authService = authService,
         _accountService = accountService,
         _tokenStorage = tokenStorage,
-        _apiClient = apiClient;
+        _apiClient = apiClient,
+        _firebaseAuthGateway = firebaseAuthGateway;
 
   bool get isAuthenticated => session.isAuthenticated;
   bool get isPaired => session.isPaired;
   bool get isProfileCompleted => session.isProfileCompleted;
+  String? get phoneVerificationId => _phoneVerificationId;
+  String? get pendingPhoneNumber => _pendingPhoneNumber;
+  bool get isEmailVerified => session.user?.emailVerified ?? true;
+  bool get isBusy => status == AuthStatus.loading || _auxLoading;
 
   Future<void> bootstrap() async {
+    // SplashScreen can be re-mounted (e.g. after an OS-level interruption)
+    // while the user is already past the initial bootstrap and mid-flow on
+    // another screen — re-running this would reset status to `loading` and
+    // bounce them out of whatever they were doing. Only the very first,
+    // genuine app-startup call (status still `unknown`) should proceed.
+    if (status != AuthStatus.unknown) return;
+
     status = AuthStatus.loading;
     errorMessage = null;
     notifyListeners();
@@ -153,6 +174,156 @@ class AuthProvider extends ChangeNotifier {
     status = value.isAuthenticated ? AuthStatus.authenticated : AuthStatus.unauthenticated;
     errorMessage = null;
     notifyListeners();
+  }
+
+  Future<void> _completeFirebaseLogin(
+    String firebaseIdToken,
+    FirebaseAuthProviderKind provider,
+  ) async {
+    final result = await _authService.loginWithFirebase(
+      idToken: firebaseIdToken,
+      provider: provider,
+    );
+    await _tokenStorage.saveTokens(result.tokens);
+    await refreshSession(notifyLoading: false);
+  }
+
+  Future<void> loginWithGoogle() async {
+    _auxLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final idToken = await _firebaseAuthGateway.signInWithGoogle();
+      await _runAuthAction(
+        () => _completeFirebaseLogin(idToken, FirebaseAuthProviderKind.google),
+      );
+    } on GoogleSignInCanceled catch (_) {
+      // silent no-op, user just backed out of the picker
+    } on ApiException catch (_) {
+      // _runAuthAction already set status/errorMessage before rethrowing — just stop it here.
+    } catch (_) {
+      errorMessage = 'Đăng nhập Google thất bại. Vui lòng thử lại.';
+      status = AuthStatus.error;
+      notifyListeners();
+    } finally {
+      _auxLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> startPhoneLogin(String phoneNumber) async {
+    _auxLoading = true;
+    _pendingPhoneNumber = phoneNumber;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final outcome = await _firebaseAuthGateway.sendPhoneCode(
+        phoneNumber,
+        forceResendingToken: _phoneForceResendingToken,
+      );
+      if (outcome is PhoneOtpSent) {
+        _phoneVerificationId = outcome.verificationId;
+        _phoneForceResendingToken = outcome.forceResendingToken;
+      } else if (outcome is PhoneAutoVerified) {
+        await _runAuthAction(
+          () => _completeFirebaseLogin(outcome.firebaseIdToken, FirebaseAuthProviderKind.phone),
+        );
+      }
+    } on ApiException catch (error) {
+      errorMessage = error.message;
+      status = AuthStatus.error;
+    } catch (_) {
+      errorMessage = 'Không gửi được mã OTP. Vui lòng thử lại.';
+      status = AuthStatus.error;
+    } finally {
+      _auxLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> submitPhoneOtp(String smsCode) async {
+    final verificationId = _phoneVerificationId;
+    if (verificationId == null) return;
+    await _runAuthAction(() async {
+      final idToken = await _firebaseAuthGateway.confirmPhoneCode(
+        verificationId: verificationId,
+        smsCode: smsCode,
+      );
+      await _completeFirebaseLogin(idToken, FirebaseAuthProviderKind.phone);
+    });
+  }
+
+  Future<void> verifyEmailCode(String code) async {
+    final email = session.user?.email;
+    if (email == null) return;
+    _auxLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final result = await _authService.verifyEmailCode(email: email, code: code);
+      await _tokenStorage.saveTokens(result.tokens);
+      await refreshSession(notifyLoading: false);
+    } on ApiException catch (error) {
+      errorMessage = error.message;
+    } finally {
+      _auxLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> resendEmailCode() async {
+    final email = session.user?.email;
+    if (email == null) return;
+    _auxLoading = true;
+    notifyListeners();
+    try {
+      await _authService.sendEmailVerificationCode(email);
+    } on ApiException catch (error) {
+      errorMessage = error.message;
+    } finally {
+      _auxLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> forgotPassword(String email) async {
+    _auxLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _authService.forgotPassword(email);
+    } on ApiException catch (error) {
+      errorMessage = error.message;
+      rethrow;
+    } finally {
+      _auxLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    _auxLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final result = await _authService.resetPassword(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+      );
+      await _tokenStorage.saveTokens(result.tokens);
+      await refreshSession(notifyLoading: false);
+    } on ApiException catch (error) {
+      errorMessage = error.message;
+      rethrow;
+    } finally {
+      _auxLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> _runAuthAction(Future<void> Function() action) async {

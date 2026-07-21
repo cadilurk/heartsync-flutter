@@ -17,7 +17,10 @@ android {
 
     defaultConfig {
         applicationId = "com.example.heartsync_flutter"
-        minSdk = flutter.minSdkVersion
+        // firebase_auth needs minSdk >= 23; google_sign_in v6.x (unlike v7.x)
+        // doesn't need 24, so pin the floor explicitly rather than relying on
+        // flutter.minSdkVersion (local.properties can override this lower).
+        minSdk = maxOf(flutter.minSdkVersion, 23)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

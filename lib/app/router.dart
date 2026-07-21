@@ -3,9 +3,14 @@ import 'package:go_router/go_router.dart';
 import '../features/account/screens/account_screen.dart';
 import '../features/account/screens/profile_setup_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
+import '../features/auth/screens/forgot_password_screen.dart';
 import '../features/auth/screens/login_screen.dart';
+import '../features/auth/screens/otp_verify_screen.dart';
+import '../features/auth/screens/phone_login_screen.dart';
 import '../features/auth/screens/register_screen.dart';
+import '../features/auth/screens/reset_password_screen.dart';
 import '../features/auth/screens/splash_screen.dart';
+import '../features/auth/screens/verify_email_screen.dart';
 import '../features/home/screens/home_shell_screen.dart';
 import '../features/pairing/screens/enter_pairing_code_screen.dart';
 import '../features/pairing/screens/pairing_code_screen.dart';
@@ -25,18 +30,37 @@ GoRouter createRouter(AuthProvider authProvider) {
     refreshListenable: authProvider,
     redirect: (context, state) {
       final location = state.uri.path;
-      final isAuthRoute = location == '/login' || location == '/register';
+      final isAuthRoute = location == '/login' ||
+          location == '/register' ||
+          location == '/login-phone' ||
+          location == '/otp-verify' ||
+          location == '/forgot-password' ||
+          location == '/reset-password';
       final isSplash = location == '/splash';
       final isProfileSetup = location == '/profile-setup';
       final isPairingRoute = location.startsWith('/pairing');
+      final isVerifyEmail = location == '/verify-email';
 
       if (authProvider.status == AuthStatus.unknown ||
           authProvider.status == AuthStatus.loading) {
         return isSplash ? null : '/splash';
       }
 
+      // An auth action (phone OTP send, email verify, forgot/reset password...)
+      // is in flight on whatever screen is currently showing. These can take
+      // many seconds (Play Integrity retries etc.) — don't let a mid-flight
+      // notifyListeners() yank the user away from that screen; let it finish
+      // and decide its own navigation from the result.
+      if (authProvider.isBusy) {
+        return null;
+      }
+
       if (!authProvider.isAuthenticated) {
         return isAuthRoute ? null : '/login';
+      }
+
+      if (!authProvider.isEmailVerified) {
+        return isVerifyEmail ? null : '/verify-email';
       }
 
       if (!authProvider.isProfileCompleted) {
@@ -47,7 +71,7 @@ GoRouter createRouter(AuthProvider authProvider) {
         return isPairingRoute || isProfileSetup ? null : '/pairing';
       }
 
-      if (isAuthRoute || isSplash || location == '/pairing') {
+      if (isAuthRoute || isSplash || isVerifyEmail || location == '/pairing') {
         return '/home';
       }
 
@@ -57,6 +81,11 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
+      GoRoute(path: '/login-phone', builder: (_, _) => const PhoneLoginScreen()),
+      GoRoute(path: '/otp-verify', builder: (_, _) => const OtpVerifyScreen()),
+      GoRoute(path: '/verify-email', builder: (_, _) => const VerifyEmailScreen()),
+      GoRoute(path: '/forgot-password', builder: (_, _) => const ForgotPasswordScreen()),
+      GoRoute(path: '/reset-password', builder: (_, _) => const ResetPasswordScreen()),
       GoRoute(path: '/profile-setup', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/pairing', builder: (_, _) => const PairingHubScreen()),
       GoRoute(path: '/pairing/code', builder: (_, _) => const PairingCodeScreen()),
