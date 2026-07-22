@@ -156,7 +156,7 @@ class _HomeTabState extends State<_HomeTab>
   final ScrollController _scrollController = ScrollController();
   double _scrollOffset = 0;
 
-  DateTime? _filterDate;
+  DateTimeRange? _filterDateRange;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   String? _playingPreviewUrl;
@@ -237,11 +237,19 @@ class _HomeTabState extends State<_HomeTab>
 
   Future<void> _selectFilterDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await showDateRangePicker(
       context: context,
-      initialDate: _filterDate ?? now,
+      initialDateRange: _filterDateRange ??
+          DateTimeRange(
+            start: now.subtract(const Duration(days: 7)),
+            end: now,
+          ),
       firstDate: DateTime(2000),
       lastDate: DateTime(now.year + 10),
+      helpText: 'CHỌN KHOẢNG THỜI GIAN KỶ NIỆM',
+      cancelText: 'HỦY',
+      confirmText: 'CHỌN',
+      saveText: 'ÁP DỤNG',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -256,7 +264,7 @@ class _HomeTabState extends State<_HomeTab>
       },
     );
     if (picked != null) {
-      setState(() => _filterDate = picked);
+      setState(() => _filterDateRange = picked);
     }
   }
 
@@ -319,16 +327,23 @@ class _HomeTabState extends State<_HomeTab>
         .where((m) => m.isCompleted)
         .length;
 
-    final displayMilestones = _filterDate == null
+    final displayMilestones = _filterDateRange == null
         ? milestoneProvider.milestones
-        : milestoneProvider.milestones
-              .where(
-                (m) =>
-                    m.date.year == _filterDate!.year &&
-                    m.date.month == _filterDate!.month &&
-                    m.date.day == _filterDate!.day,
-              )
-              .toList();
+        : milestoneProvider.milestones.where((m) {
+            final dateOnly = DateTime(m.date.year, m.date.month, m.date.day);
+            final startOnly = DateTime(
+              _filterDateRange!.start.year,
+              _filterDateRange!.start.month,
+              _filterDateRange!.start.day,
+            );
+            final endOnly = DateTime(
+              _filterDateRange!.end.year,
+              _filterDateRange!.end.month,
+              _filterDateRange!.end.day,
+            );
+            return dateOnly.compareTo(startOnly) >= 0 &&
+                dateOnly.compareTo(endOnly) <= 0;
+          }).toList();
 
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -389,9 +404,9 @@ class _HomeTabState extends State<_HomeTab>
                       ),
                     ),
                     const Spacer(),
-                    if (_filterDate != null)
+                    if (_filterDateRange != null)
                       GestureDetector(
-                        onTap: () => setState(() => _filterDate = null),
+                        onTap: () => setState(() => _filterDateRange = null),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -406,7 +421,11 @@ class _HomeTabState extends State<_HomeTab>
                           child: Row(
                             children: [
                               Text(
-                                '${_filterDate!.day}/${_filterDate!.month}/${_filterDate!.year}',
+                                _filterDateRange!.start.year == _filterDateRange!.end.year &&
+                                        _filterDateRange!.start.month == _filterDateRange!.end.month &&
+                                        _filterDateRange!.start.day == _filterDateRange!.end.day
+                                    ? '${_filterDateRange!.start.day}/${_filterDateRange!.start.month}/${_filterDateRange!.start.year}'
+                                    : '${_filterDateRange!.start.day}/${_filterDateRange!.start.month} - ${_filterDateRange!.end.day}/${_filterDateRange!.end.month}/${_filterDateRange!.end.year}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFFF35C9B),
@@ -425,15 +444,15 @@ class _HomeTabState extends State<_HomeTab>
                       ),
                     IconButton(
                       icon: Icon(
-                        _filterDate != null
+                        _filterDateRange != null
                             ? Icons.filter_alt
                             : Icons.filter_alt_outlined,
-                        color: _filterDate != null
+                        color: _filterDateRange != null
                             ? const Color(0xFFF35C9B)
                             : Colors.grey,
                       ),
                       onPressed: _selectFilterDate,
-                      tooltip: 'Lọc theo ngày',
+                      tooltip: 'Lọc từ ngày đến ngày',
                     ),
                   ],
                 ),
