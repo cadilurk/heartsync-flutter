@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../app/theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/alarm_provider.dart';
 
@@ -52,7 +51,7 @@ const _data = <SignalType, _SignalData>{
   ),
 };
 
-// ── Heart CustomPainter (SVG path M18 30s-14-9-14-18a7 7 0 0114 0 7 7 0 0114 0c0 9-14 18-14 18z)
+// ── Heart CustomPainter ───────────────────────────────────────────────────────
 
 class _HeartPainter extends CustomPainter {
   final Color color;
@@ -71,17 +70,12 @@ class _HeartPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path()
-      // M 18 30
       ..moveTo(x(18), y(30))
-      // s -14 -9 -14 -18  (smooth cubic; prev is M so c1 = current point)
       ..cubicTo(x(18), y(30), x(4), y(21), x(4), y(12))
-      // a 7 7 0 0 1 14 0
       ..arcToPoint(Offset(x(18), y(12)),
           radius: Radius.elliptical(x(7), y(7)), clockwise: true)
-      // 7 7 0 0 1 14 0
       ..arcToPoint(Offset(x(32), y(12)),
           radius: Radius.elliptical(x(7), y(7)), clockwise: true)
-      // c 0 9 -14 18 -14 18
       ..cubicTo(x(32), y(21), x(18), y(30), x(18), y(30))
       ..close();
 
@@ -113,7 +107,6 @@ class _AlarmScreenState extends State<AlarmScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Giữ reference để dùng an toàn trong dispose() (không được context.read ở đó).
     _alarm = context.read<AlarmProvider>();
   }
 
@@ -129,7 +122,7 @@ class _AlarmScreenState extends State<AlarmScreen>
     _idleAnim = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
-    _beatAnim = Tween<double>(begin: 0.80, end: 1.30).animate(
+    _beatAnim = Tween<double>(begin: 0.82, end: 1.25).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
 
@@ -158,9 +151,9 @@ class _AlarmScreenState extends State<AlarmScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('💔 $name đang offline rồi~'),
-        backgroundColor: AppColors.active,
+        backgroundColor: const Color(0xFFFF4B72),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
@@ -195,159 +188,319 @@ class _AlarmScreenState extends State<AlarmScreen>
     final heartAnim = isReceiving ? _beatAnim : _idleAnim;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: [
-              const SizedBox(height: 32),
-
-              // A. Partner header
-              _PartnerHeader(
-                name: _name(partner?.email),
-                isConnected: alarm.isConnected,
-              ),
-
-              const SizedBox(height: 32),
-
-              // B. Signal cards
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: SignalType.values.map((type) {
-                  final isActive = type == selected;
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        left: type.index == 0 ? 0 : 4,
-                        right: type.index == SignalType.values.length - 1 ? 0 : 4,
-                      ),
-                      child: _SignalCard(
-                        signalData: _data[type]!,
-                        isActive: isActive,
-                        heartAnim: isActive ? heartAnim : null,
-                        onTap: () => alarm.selectSignal(type),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 16),
-
-              // C. Page indicator dots
-              _PageDots(
-                current: selected.index,
-                activeColor: _data[selected]!.border,
-              ),
-
-              const SizedBox(height: 14),
-
-              // D. Instruction text
-              Text(
-                'Lắc điện thoại để gửi "${_data[selected]!.label}"',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                  color: Color(0xFF86868B),
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              // E. Recent chips
-              _RecentChips(
-                lastSentAt: alarm.lastSentAt,
-                lastReceivedAt: alarm.lastReceivedAt,
-                fmt: _fmt,
-              ),
-
-              const SizedBox(height: 36),
-            ],
+      backgroundColor: const Color(0xFFFFF2F5),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          'Rung chuông Yêu thương',
+          style: TextStyle(
+            color: Color(0xFF231B1E),
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
         ),
+      ),
+      body: Stack(
+        children: [
+          // Background ambient circles
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Container(
+              width: 210,
+              height: 210,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFE3EC).withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -60,
+            left: -60,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFE3EC).withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+
+                  // A. Partner Header Card
+                  _PartnerHeaderCard(
+                    name: _name(partner?.email),
+                    email: partner?.email ?? '',
+                    isConnected: alarm.isConnected,
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // B. Signal Cards Selection
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: SignalType.values.map((type) {
+                      final isActive = type == selected;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            left: type.index == 0 ? 0 : 4,
+                            right: type.index == SignalType.values.length - 1 ? 0 : 4,
+                          ),
+                          child: _SignalCard(
+                            signalData: _data[type]!,
+                            isActive: isActive,
+                            heartAnim: isActive ? heartAnim : null,
+                            onTap: () => alarm.selectSignal(type),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // C. Page indicator dots
+                  _PageDots(
+                    current: selected.index,
+                    activeColor: _data[selected]!.border,
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // D. Big Pulsing Send Button
+                  ScaleTransition(
+                    scale: heartAnim,
+                    child: GestureDetector(
+                      onTap: () => alarm.sendAlarmWithType(selected),
+                      child: Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              _data[selected]!.border,
+                              _data[selected]!.heartColor.withValues(alpha: 0.8),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _data[selected]!.heartColor.withValues(alpha: 0.45),
+                              blurRadius: 24,
+                              spreadRadius: 4,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _data[selected]!.emoji,
+                              style: const TextStyle(fontSize: 38),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'GỬI NGAY',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Instruction Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFFFD4E0), width: 1.2),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.vibration_rounded,
+                          color: Color(0xFFFF4B72),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Chạm nút hoặc lắc máy để gửi "${_data[selected]!.label}"',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF70525A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // E. Recent Chips
+                  _RecentChips(
+                    lastSentAt: alarm.lastSentAt,
+                    lastReceivedAt: alarm.lastReceivedAt,
+                    fmt: _fmt,
+                  ),
+
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ── Partner header ─────────────────────────────────────────────────────────────
+// ── Partner Header Card ─────────────────────────────────────────────────────────
 
-class _PartnerHeader extends StatelessWidget {
+class _PartnerHeaderCard extends StatelessWidget {
   final String name;
+  final String email;
   final bool isConnected;
 
-  const _PartnerHeader({required this.name, required this.isConnected});
+  const _PartnerHeaderCard({
+    required this.name,
+    required this.email,
+    required this.isConnected,
+  });
 
   @override
   Widget build(BuildContext context) {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
-    return Column(
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [Color(0xFFC084FC), Color(0xFFEC4899)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFFDE8EE), width: 1.2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0C000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
           ),
-          alignment: Alignment.center,
-          child: Text(
-            initial,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          name,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1a1a2e),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isConnected
-                    ? const Color(0xFF22c55e)
-                    : const Color(0xFF9CA3AF),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 56,
+            height: 56,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF537B), Color(0xFFFF8DA1)],
               ),
             ),
-            const SizedBox(width: 5),
-            Text(
-              isConnected ? 'Đang kết nối' : 'Offline',
-              style: TextStyle(
-                fontSize: 12,
-                color: isConnected
-                    ? const Color(0xFF22c55e)
-                    : const Color(0xFF9CA3AF),
+            child: Center(
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(width: 14),
+
+          // Name and Status
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF231B1E),
+                  ),
+                ),
+                if (email.isNotEmpty)
+                  Text(
+                    email,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF887A80),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+
+          // Online / Offline Status Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isConnected ? const Color(0xFFDCFCE7) : const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isConnected ? const Color(0xFF86EFAC) : const Color(0xFFE5E7EB),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isConnected ? const Color(0xFF22C55E) : const Color(0xFF9CA3AF),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isConnected ? 'Online' : 'Offline',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isConnected ? const Color(0xFF15803D) : const Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ── Signal card ────────────────────────────────────────────────────────────────
+// ── Signal Card Widget ────────────────────────────────────────────────────────
 
 class _SignalCard extends StatelessWidget {
   final _SignalData signalData;
@@ -369,23 +522,32 @@ class _SignalCard extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
           decoration: BoxDecoration(
             color: signalData.bg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: signalData.border, width: 2),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isActive ? signalData.border : signalData.border.withValues(alpha: 0.3),
+              width: isActive ? 2.2 : 1.2,
+            ),
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: const Color(0xFFEC4899).withValues(alpha: 0.2),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      color: signalData.heartColor.withValues(alpha: 0.25),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
                     )
                   ]
-                : [],
+                : const [
+                    BoxShadow(
+                      color: Color(0x06000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -397,7 +559,7 @@ class _SignalCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // Heart SVG via CustomPaint + optional ScaleTransition
+              // Heart Icon
               _HeartIcon(
                 color: signalData.heartColor,
                 scaleAnim: heartAnim,
@@ -410,7 +572,7 @@ class _SignalCard extends StatelessWidget {
                 signalData.label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: signalData.textColor,
                 ),
@@ -432,7 +594,7 @@ class _HeartIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final heart = CustomPaint(
-      size: const Size(36, 36),
+      size: const Size(32, 32),
       painter: _HeartPainter(color),
     );
 
@@ -443,7 +605,7 @@ class _HeartIcon extends StatelessWidget {
   }
 }
 
-// ── Page dots ─────────────────────────────────────────────────────────────────
+// ── Page Dots Widget ──────────────────────────────────────────────────────────
 
 class _PageDots extends StatelessWidget {
   final int current;
@@ -459,12 +621,12 @@ class _PageDots extends StatelessWidget {
         final isActive = i == current;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          width: isActive ? 18 : 6,
-          height: isActive ? 6 : 6,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: isActive ? 22 : 8,
+          height: 8,
           decoration: BoxDecoration(
-            color: isActive ? activeColor : const Color(0xFFF4C0D1),
-            borderRadius: BorderRadius.circular(isActive ? 4 : 50),
+            color: isActive ? activeColor : const Color(0xFFFFD4E0),
+            borderRadius: BorderRadius.circular(4),
           ),
         );
       }),
@@ -472,7 +634,7 @@ class _PageDots extends StatelessWidget {
   }
 }
 
-// ── Recent chips ──────────────────────────────────────────────────────────────
+// ── Recent Chips Widget ───────────────────────────────────────────────────────
 
 class _RecentChips extends StatelessWidget {
   final DateTime? lastSentAt;
@@ -489,13 +651,13 @@ class _RecentChips extends StatelessWidget {
   Widget build(BuildContext context) {
     if (lastSentAt == null && lastReceivedAt == null) return const SizedBox.shrink();
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
       children: [
         if (lastSentAt != null) _Chip(text: '💌 Đã gửi: ${fmt(lastSentAt!)}'),
-        if (lastSentAt != null && lastReceivedAt != null)
-          const SizedBox(width: 6),
-        if (lastReceivedAt != null) _Chip(text: '💕 Nhận: ${fmt(lastReceivedAt!)}'),
+        if (lastReceivedAt != null) _Chip(text: '💕 Đã nhận: ${fmt(lastReceivedAt!)}'),
       ],
     );
   }
@@ -508,18 +670,25 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF0F8),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF4C0D1), width: 0.5),
+        border: Border.all(color: const Color(0xFFFFD4E0), width: 1),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 10,
-          color: Color(0xFF993556),
-          fontWeight: FontWeight.w500,
+          fontSize: 12,
+          color: Color(0xFFFF4B72),
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

@@ -22,9 +22,13 @@ class AlarmOverlay extends StatefulWidget {
 }
 
 class _AlarmOverlayState extends State<AlarmOverlay>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _scaleCtrl;
   late final Animation<double> _scaleAnim;
+
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+
   Timer? _timer;
   int _countdown = 30;
 
@@ -40,10 +44,24 @@ class _AlarmOverlayState extends State<AlarmOverlay>
     );
     _scaleCtrl.forward();
 
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.9, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) { timer.cancel(); return; }
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       setState(() => _countdown--);
-      if (_countdown <= 0) { timer.cancel(); widget.onDismiss(); }
+      if (_countdown <= 0) {
+        timer.cancel();
+        widget.onDismiss();
+      }
     });
   }
 
@@ -51,38 +69,52 @@ class _AlarmOverlayState extends State<AlarmOverlay>
   void dispose() {
     _timer?.cancel();
     _scaleCtrl.dispose();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
-  // ── Signal colors ────────────────────────────────────────────────────────────
+  // ── Signal colors & labels ───────────────────────────────────────────────────
   Color get _accentColor => switch (widget.signalType) {
-        'miss' => const Color(0xFFA855F7),
-        'care' => const Color(0xFFF97316),
-        _ => const Color(0xFFEC4899),
+        'miss' => const Color(0xFFC084FC),
+        'care' => const Color(0xFFFB923C),
+        _ => const Color(0xFFFF4B72),
       };
 
   Color get _pastelBg => switch (widget.signalType) {
-        'miss' => const Color(0xFFF5F0FF),
-        'care' => const Color(0xFFFFF4ED),
-        _ => const Color(0xFFFFF0F7),
+        'miss' => const Color(0xFFF3E8FF),
+        'care' => const Color(0xFFFFF7ED),
+        _ => const Color(0xFFFFEEF3),
+      };
+
+  String get _emoji => switch (widget.signalType) {
+        'miss' => '🥺',
+        'care' => '🤗',
+        _ => '💕',
       };
 
   String get _label => switch (widget.signalType) {
-        'miss' => 'Nhớ lắm',
-        'care' => 'Quan tâm',
-        _ => 'Yêu lắm',
+        'miss' => 'Nhớ em lắm!',
+        'care' => 'Đang nghĩ đến em',
+        _ => 'Yêu em lắm!',
       };
 
   String get _message => switch (widget.signalType) {
-        'miss' => 'nhớ em lắm... 🥺',
-        'care' => 'đang nghĩ đến em 🤗',
-        _ => 'yêu em lắm... 💕',
+        'miss' => 'Đối phương đang rất nhớ bạn... 🥺',
+        'care' => 'Một cái ôm ấm áp gửi từ phương xa 🤗',
+        _ => 'Trái tim ai đó đang đập rộn ràng vì bạn 💕',
       };
 
-  void _handleDismiss() { _timer?.cancel(); widget.onDismiss(); }
-  void _handleSendBack() { _timer?.cancel(); widget.onSendBack(); widget.onDismiss(); }
+  void _handleDismiss() {
+    _timer?.cancel();
+    widget.onDismiss();
+  }
 
-  // ── Progress arc for countdown ───────────────────────────────────────────────
+  void _handleSendBack() {
+    _timer?.cancel();
+    widget.onSendBack();
+    widget.onDismiss();
+  }
+
   double get _progress => _countdown / 30.0;
 
   @override
@@ -92,37 +124,25 @@ class _AlarmOverlayState extends State<AlarmOverlay>
       child: Material(
         color: Colors.transparent,
         child: Container(
-          // Gradient background
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                const Color(0xFFFCE4EC).withValues(alpha: 0.96),
-                const Color(0xFFF8BBD9).withValues(alpha: 0.98),
-              ],
-            ),
+            color: Colors.black.withValues(alpha: 0.55),
           ),
           child: Center(
             child: ScaleTransition(
               scale: _scaleAnim,
               child: Container(
-                width: 300,
+                width: 320,
                 margin: const EdgeInsets.symmetric(horizontal: 24),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(color: const Color(0xFFFFD4E0), width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                      color: _accentColor.withValues(alpha: 0.25),
-                      blurRadius: 48,
+                      color: _accentColor.withValues(alpha: 0.35),
+                      blurRadius: 40,
                       spreadRadius: 4,
-                      offset: const Offset(0, 12),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
@@ -130,34 +150,43 @@ class _AlarmOverlayState extends State<AlarmOverlay>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-
-                    // ── Avatar với countdown ring ────────────────────────────
+                    // ── Avatar with Pulsing Countdown Ring ─────────────────
                     Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Progress ring
-                        SizedBox(
-                          width: 84,
-                          height: 84,
-                          child: CircularProgressIndicator(
-                            value: _progress,
-                            strokeWidth: 3,
-                            backgroundColor: Colors.grey.shade100,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              _accentColor.withValues(alpha: 0.4),
+                        // Outer Pulsing Glow Circle
+                        ScaleTransition(
+                          scale: _pulseAnim,
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _accentColor.withValues(alpha: 0.15),
                             ),
                           ),
                         ),
-                        // Avatar circle
+                        // Progress ring
+                        SizedBox(
+                          width: 88,
+                          height: 88,
+                          child: CircularProgressIndicator(
+                            value: _progress,
+                            strokeWidth: 3.5,
+                            backgroundColor: const Color(0xFFF3E8EC),
+                            valueColor: AlwaysStoppedAnimation<Color>(_accentColor),
+                          ),
+                        ),
+                        // Avatar Circle
                         Container(
-                          width: 72,
-                          height: 72,
+                          width: 74,
+                          height: 74,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
                               colors: [
-                                const Color(0xFFC084FC),
                                 _accentColor,
+                                const Color(0xFFFF8DA1),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
@@ -168,121 +197,128 @@ class _AlarmOverlayState extends State<AlarmOverlay>
                             widget.partnerInitial,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 28,
+                              fontSize: 30,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
 
-                    // ── Tên partner ──────────────────────────────────────────
+                    // ── Partner Name & Tagline ──────────────────────────────
                     Text(
                       widget.partnerName,
                       style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1a1a2e),
-                        letterSpacing: 0.2,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF231B1E),
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
 
-                    Text(
-                      'vừa gửi cho bạn',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade400,
-                        letterSpacing: 0.3,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _pastelBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Vừa rung chuông gửi tín hiệu yêu thương 🔔',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _accentColor,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
 
-                    // ── Heart icon ───────────────────────────────────────────
+                    // ── Big Signal Heart Card ──────────────────────────────
                     Container(
-                      width: 88,
-                      height: 88,
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
                         color: _pastelBg,
+                        borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: _accentColor.withValues(alpha: 0.15),
-                          width: 1.5,
+                          color: _accentColor.withValues(alpha: 0.3),
+                          width: 1.2,
                         ),
                       ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.favorite_rounded,
-                        color: _accentColor,
-                        size: 44,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // ── Label & message ──────────────────────────────────────
-                    Text(
-                      _label,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: _accentColor,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-
-                    Text(
-                      _message,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey.shade400,
+                      child: Column(
+                        children: [
+                          Text(
+                            _emoji,
+                            style: const TextStyle(fontSize: 44),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _label,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: _accentColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _message,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic,
+                              color: Color(0xFF706066),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // ── Buttons ──────────────────────────────────────────────
+                    // ── Action Buttons ─────────────────────────────────────
                     Row(
                       children: [
-                        // Đóng  (flex 4)
+                        // Dismiss Button
                         Expanded(
                           flex: 4,
                           child: OutlinedButton(
                             onPressed: _handleDismiss,
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFBE185D),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              foregroundColor: const Color(0xFF706066),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(50),
+                                borderRadius: BorderRadius.circular(18),
                               ),
-                              side: BorderSide(
-                                color: _accentColor.withValues(alpha: 0.3),
+                              side: const BorderSide(
+                                color: Color(0xFFE0D5DA),
+                                width: 1.2,
                               ),
                             ),
                             child: const Text(
-                              'Đóng',
+                              'Tắt',
                               style: TextStyle(
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.bold,
                                 fontSize: 14,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        // Gửi lại  (flex 6)
+                        const SizedBox(width: 12),
+
+                        // Send Back Button
                         Expanded(
                           flex: 6,
-                          child: DecoratedBox(
+                          child: Container(
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(50),
+                              borderRadius: BorderRadius.circular(18),
                               gradient: LinearGradient(
                                 colors: [
-                                  const Color(0xFFF472B6),
                                   _accentColor,
+                                  const Color(0xFFFF537B),
                                 ],
                               ),
                               boxShadow: [
@@ -299,33 +335,37 @@ class _AlarmOverlayState extends State<AlarmOverlay>
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 13),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(50),
+                                  borderRadius: BorderRadius.circular(18),
                                 ),
-                                elevation: 0,
                               ),
-                              child: const Text(
-                                '💕 Gửi lại',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Gửi lại 💕',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
 
-                    // ── Countdown text ───────────────────────────────────────
+                    // ── Countdown Timer Text ───────────────────────────────
                     Text(
-                      'Tự đóng sau ${_countdown}s',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade400,
-                        letterSpacing: 0.3,
+                      'Tự động đóng sau ${_countdown}s',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFA09498),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -338,3 +378,5 @@ class _AlarmOverlayState extends State<AlarmOverlay>
     );
   }
 }
+
+

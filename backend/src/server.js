@@ -44,9 +44,13 @@ app.use('/', createChallengeRouter(db, auth, ok, fail));
 
 let firebaseMessaging = null;
 let firebaseAuth = null;
-if (fs.existsSync('./firebase-service-account.json')) {
+const serviceAccountPath = fs.existsSync('./firebase-service-account.json')
+  ? './firebase-service-account.json'
+  : (fs.existsSync('./backend/firebase-service-account.json') ? './backend/firebase-service-account.json' : null);
+
+if (serviceAccountPath) {
   try {
-    const serviceAccount = JSON.parse(fs.readFileSync('./firebase-service-account.json', 'utf8'));
+    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });

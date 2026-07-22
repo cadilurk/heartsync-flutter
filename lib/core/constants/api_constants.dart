@@ -6,7 +6,7 @@ class ApiConstants {
 
   static const baseUrl = String.fromEnvironment(
     'HEART_SYNC_API_BASE_URL',
-    defaultValue: 'http://192.168.105.12:5291',
+    defaultValue: 'http://192.168.1.139:5291',
   );
 
   static bool get useMockApi => baseUrl.startsWith('mock://');

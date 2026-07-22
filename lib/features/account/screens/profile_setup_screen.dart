@@ -44,6 +44,39 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     super.dispose();
   }
 
+  Future<void> _selectDate(TextEditingController controller) async {
+    DateTime initial = DateTime.now();
+    if (controller.text.isNotEmpty) {
+      try {
+        initial = DateTime.parse(controller.text);
+      } catch (_) {}
+    }
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1950),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFFFF4B72),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF231B1E),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      final formatted = "${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      setState(() {
+        controller.text = formatted;
+      });
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     try {
@@ -70,70 +103,320 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final isLoading = context.select<AccountProvider, bool>((value) => value.isLoading);
-    // Reached two ways: a forced first-time onboarding step (profile not yet
-    // completed — no way back, must finish it) and an explicit "Sửa hồ sơ"
-    // edit action from AccountScreen (profile already completed — user should
-    // be able to cancel back out). Only show the back button for the latter.
     final isEditing = context.select<AuthProvider, bool>((value) => value.isProfileCompleted);
+
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF2F5),
       appBar: AppBar(
-        title: const Text('Hồ sơ cá nhân'),
-        leading: isEditing ? BackButton(onPressed: () => context.go('/home')) : null,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          'Hồ sơ cá nhân',
+          style: TextStyle(
+            color: Color(0xFF231B1E),
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        leading: isEditing
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF231B1E), size: 20),
+                onPressed: () => context.go('/home'),
+              )
+            : null,
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            const Text(
-              'Hoàn thiện hồ sơ để bắt đầu ghép đôi.',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      body: Stack(
+        children: [
+          // Background ambient circles
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFE3EC).withValues(alpha: 0.7),
+              ),
             ),
-            const SizedBox(height: 20),
-            Form(
-              key: _formKey,
+          ),
+          Positioned(
+            bottom: -60,
+            left: -60,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFE3EC).withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
                 children: [
-                  TextFormField(
-                    controller: _displayNameController,
-                    decoration: const InputDecoration(labelText: 'Tên hiển thị'),
-                    validator: (value) =>
-                        value == null || value.trim().isEmpty ? 'Vui lòng nhập tên hiển thị.' : null,
+                  // Live Avatar Preview Header
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _avatarController,
+                    builder: (context, value, _) {
+                      final url = value.text.trim();
+                      return ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _displayNameController,
+                        builder: (context, nameVal, _) {
+                          final name = nameVal.text.trim();
+                          return Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [Color(0xFFFF537B), Color(0xFFFF8DA1)],
+                              ),
+                            ),
+                            child: CircleAvatar(
+                              radius: 46,
+                              backgroundColor: const Color(0xFFFFEEF3),
+                              backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
+                              child: url.isEmpty
+                                  ? Text(
+                                      name.isNotEmpty ? name[0].toUpperCase() : '💖',
+                                      style: const TextStyle(
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFFF4B72),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _avatarController,
-                    decoration: const InputDecoration(labelText: 'Avatar URL (tuỳ chọn)'),
+                  const SizedBox(height: 14),
+
+                  const Text(
+                    'Hoàn thiện thông tin cá nhân',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF231B1E),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _birthdayController,
-                    decoration: const InputDecoration(labelText: 'Ngày sinh yyyy-mm-dd (tuỳ chọn)'),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Giúp hai bạn kết nối và theo dõi kỷ niệm chính xác hơn 💕',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF706066),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _startDateController,
-                    decoration: const InputDecoration(labelText: 'Ngày yêu yyyy-mm-dd (tuỳ chọn)'),
+                  const SizedBox(height: 24),
+
+                  // Form Container Card
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFFDE8EE), width: 1),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x0C000000),
+                          blurRadius: 18,
+                          offset: Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Display Name
+                          _buildTextField(
+                            controller: _displayNameController,
+                            hintText: 'Tên hiển thị',
+                            icon: Icons.person_outline_rounded,
+                            validator: (v) =>
+                                v == null || v.trim().isEmpty ? 'Vui lòng nhập tên hiển thị.' : null,
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Avatar URL
+                          _buildTextField(
+                            controller: _avatarController,
+                            hintText: 'Link ảnh đại diện (tuỳ chọn)',
+                            icon: Icons.image_outlined,
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Birthday
+                          _buildTextField(
+                            controller: _birthdayController,
+                            hintText: 'Ngày sinh (YYYY-MM-DD)',
+                            icon: Icons.cake_outlined,
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFFFF4B72), size: 20),
+                              onPressed: () => _selectDate(_birthdayController),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Relationship Start Date
+                          _buildTextField(
+                            controller: _startDateController,
+                            hintText: 'Ngày chính thức yêu (YYYY-MM-DD)',
+                            icon: Icons.favorite_outline_rounded,
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFFFF4B72), size: 20),
+                              onPressed: () => _selectDate(_startDateController),
+                            ),
+                          ),
+
+                          if (_error != null) ...[
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFEBEE),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _error!,
+                                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          const SizedBox(height: 24),
+
+                          // Save Button
+                          SizedBox(
+                            height: 52,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFF537B), Color(0xFFFF3B65)],
+                                ),
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x55FF4B72),
+                                    blurRadius: 12,
+                                    offset: Offset(0, 5),
+                                  ),
+                                ],
+                              ),
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                ),
+                                onPressed: isLoading ? null : _save,
+                                child: isLoading
+                                    ? const SizedBox.square(
+                                        dimension: 22,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2.5,
+                                        ),
+                                      )
+                                    : const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            'Lưu hồ sơ 💕',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: Colors.red)),
-            ],
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: isLoading ? null : _save,
-              child: isLoading
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Lưu hồ sơ'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    Widget? suffixIcon,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      style: const TextStyle(fontSize: 15, color: Color(0xFF231B1E)),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: const TextStyle(color: Color(0xFFA59B9E), fontSize: 14),
+        prefixIcon: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEEF3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: const Color(0xFFFF4B72), size: 20),
+          ),
+        ),
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFF0E2E7), width: 1.2),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFFF4B72), width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        ),
+      ),
+      validator: validator,
+    );
+  }
 }
+
