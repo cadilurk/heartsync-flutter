@@ -10,16 +10,20 @@ import 'app/app.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/notifications/fcm_service.dart';
 
+import 'firebase_options.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb) {
-    try {
-      await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    if (!kIsWeb) {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    } catch (e) {
-      debugPrint('Error initializing Firebase: $e');
     }
+  } catch (e) {
+    debugPrint('Error initializing Firebase: $e');
   }
 
   runApp(const HeartSyncApp());

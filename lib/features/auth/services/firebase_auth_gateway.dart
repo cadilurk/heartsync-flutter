@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -35,11 +36,14 @@ class GoogleSignInCanceled implements Exception {}
 /// `google_sign_in` SDKs. Everything else (namely [AuthProvider]) composes
 /// this class instead of importing those packages directly.
 class FirebaseAuthGateway {
-  // Classic v6 instance-based API (constructed once, reused) — deliberately
-  // NOT the v7 Credential Manager-based `GoogleSignIn.instance.authenticate()`
-  // flow, which fails with "Account reauth failed" on some Android
-  // environments (observed on LDPlayer) that the older API doesn't trip.
-  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: const ['email', 'profile']);
+  static const String _webClientId =
+      '236247833644-j54ban2jiv8ecvdrhqq2hkffiqmts05h.apps.googleusercontent.com';
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: kIsWeb ? _webClientId : null,
+    serverClientId: kIsWeb ? null : _webClientId,
+    scopes: const ['email', 'profile'],
+  );
 
   /// Runs the interactive Google sign-in flow and returns a Firebase ID
   /// token ready to send to our backend's `/auth/firebase` endpoint.

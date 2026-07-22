@@ -116,7 +116,14 @@ class SpaceService {
     request.fields['note'] = note;
     request.fields['memoryDate'] = memoryDate.toIso8601String();
     if (albumId != null) request.fields['albumId'] = albumId;
-    request.files.add(await http.MultipartFile.fromPath('media', file.path));
+    final bytes = await file.readAsBytes();
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'media',
+        bytes,
+        filename: file.name.isNotEmpty ? file.name : 'upload_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      ),
+    );
 
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);

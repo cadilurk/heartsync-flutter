@@ -201,7 +201,8 @@ class AuthProvider extends ChangeNotifier {
       // silent no-op, user just backed out of the picker
     } on ApiException catch (_) {
       // _runAuthAction already set status/errorMessage before rethrowing — just stop it here.
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('Google login error: $e\n$stackTrace');
       errorMessage = 'Đăng nhập Google thất bại. Vui lòng thử lại.';
       status = AuthStatus.error;
       notifyListeners();

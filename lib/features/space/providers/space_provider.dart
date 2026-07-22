@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/network/api_exception.dart';
 import '../models/space_album.dart';
 import '../models/space_media.dart';
 import '../models/space_note.dart';
@@ -120,8 +121,13 @@ class SpaceProvider extends ChangeNotifier {
         );
       }
       _sort();
-    } catch (_) {
-      errorMessage = 'Không thể upload lên Cloudinary. Kiểm tra backend/ngrok và thử lại.';
+    } catch (e, stackTrace) {
+      debugPrint('Upload media error: $e\n$stackTrace');
+      if (e is ApiException) {
+        errorMessage = e.message;
+      } else {
+        errorMessage = 'Không thể upload lên Cloudinary. Kiểm tra backend/ngrok và thử lại.';
+      }
     } finally {
       isSaving = false;
       notifyListeners();

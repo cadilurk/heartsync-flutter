@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "236247833644-bt5uvrmfu6tvnsrfrsr75pv76fvrcqg7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.heartsync_flutter",
+            "certificate_hash": "824915f0867b36a5fe86f175d5960a5575453c48"
+          }
+        },
+        {
           "client_id": "236247833644-j54ban2jiv8ecvdrhqq2hkffiqmts05h.apps.googleusercontent.com",
           "client_type": 3
         }
