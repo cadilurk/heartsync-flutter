@@ -137,15 +137,13 @@ class ApiClient {
         );
     }
 
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode == 401 && decoded['success'] != true) {
-      throw ApiException(
-        code: 'UNAUTHENTICATED',
-        message: ErrorMessages.friendly('UNAUTHENTICATED'),
-        statusCode: response.statusCode,
-      );
-    }
-    return decoded;
+    // Backend already sends its own specific error code for every 401 —
+    // UNAUTHENTICATED for an expired/missing session token, but something
+    // else entirely (e.g. INVALID_EMAIL_OR_PASSWORD on /auth/login) when the
+    // 401 means something more specific. Let that code/message pass through
+    // as-is instead of blanket-overriding it here, which used to show
+    // "session expired" even for a plain wrong-password login attempt.
+    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 }
 

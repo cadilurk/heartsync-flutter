@@ -16,9 +16,9 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _displayNameController;
-  late final TextEditingController _avatarController;
   late final TextEditingController _birthdayController;
   late final TextEditingController _startDateController;
+  String? _avatarUrl;
   String? _error;
 
   @override
@@ -26,7 +26,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     super.initState();
     final profile = context.read<AuthProvider>().session.profile;
     _displayNameController = TextEditingController(text: profile?.displayName);
-    _avatarController = TextEditingController(text: profile?.avatarUrl);
+    _avatarUrl = profile?.avatarUrl;
     _birthdayController = TextEditingController(
       text: profile?.dateOfBirth?.toIso8601String().split('T').first,
     );
@@ -38,10 +38,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   void dispose() {
     _displayNameController.dispose();
-    _avatarController.dispose();
     _birthdayController.dispose();
     _startDateController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAvatar() async {
+    try {
+      final url = await context.read<AccountProvider>().pickAndUploadAvatar();
+      if (url == null || !mounted) return;
+      setState(() => _avatarUrl = url);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể tải ảnh lên: ${error.message}')),
+      );
+    }
   }
 
   Future<void> _selectDate(TextEditingController controller) async {
@@ -83,7 +95,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       setState(() => _error = null);
       await context.read<AccountProvider>().saveProfile(
             displayName: _displayNameController.text,
-            avatarUrl: _emptyToNull(_avatarController.text),
+            avatarUrl: _avatarUrl,
             dateOfBirth: _emptyToNull(_birthdayController.text),
             relationshipStartDate: _emptyToNull(_startDateController.text),
           );
@@ -159,40 +171,76 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
                 children: [
-                  // Live Avatar Preview Header
-                  ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _avatarController,
-                    builder: (context, value, _) {
-                      final url = value.text.trim();
-                      return ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _displayNameController,
-                        builder: (context, nameVal, _) {
-                          final name = nameVal.text.trim();
-                          return Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: [Color(0xFFFF537B), Color(0xFFFF8DA1)],
+                  // Avatar picker — tap to choose a photo, uploads to Cloudinary
+                  Consumer<AccountProvider>(
+                    builder: (context, accountProvider, _) {
+                      final uploading = accountProvider.isUploadingAvatar;
+                      return GestureDetector(
+                        onTap: uploading ? null : _pickAvatar,
+                        child: Stack(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFFFF537B), Color(0xFFFF8DA1)],
+                                ),
+                              ),
+                              child: CircleAvatar(
+                                radius: 46,
+                                backgroundColor: const Color(0xFFE4E6EB),
+                                backgroundImage: _avatarUrl != null
+                                    ? NetworkImage(_avatarUrl!)
+                                    : null,
+                                // Default placeholder (à la Facebook) when no
+                                // photo has been chosen yet.
+                                child: _avatarUrl == null
+                                    ? const Icon(
+                                        Icons.person_rounded,
+                                        size: 52,
+                                        color: Color(0xFFBEC3C9),
+                                      )
+                                    : null,
                               ),
                             ),
-                            child: CircleAvatar(
-                              radius: 46,
-                              backgroundColor: const Color(0xFFFFEEF3),
-                              backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
-                              child: url.isEmpty
-                                  ? Text(
-                                      name.isNotEmpty ? name[0].toUpperCase() : '💖',
-                                      style: const TextStyle(
-                                        fontSize: 34,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFFF4B72),
+                            if (uploading)
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(0x66000000),
+                                  ),
+                                  child: const Center(
+                                    child: SizedBox.square(
+                                      dimension: 28,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
                                       ),
-                                    )
-                                  : null,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFF4B72),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_rounded,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                          );
-                        },
+                          ],
+                        ),
                       );
                     },
                   ),
@@ -245,14 +293,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             icon: Icons.person_outline_rounded,
                             validator: (v) =>
                                 v == null || v.trim().isEmpty ? 'Vui lòng nhập tên hiển thị.' : null,
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Avatar URL
-                          _buildTextField(
-                            controller: _avatarController,
-                            hintText: 'Link ảnh đại diện (tuỳ chọn)',
-                            icon: Icons.image_outlined,
                           ),
                           const SizedBox(height: 14),
 

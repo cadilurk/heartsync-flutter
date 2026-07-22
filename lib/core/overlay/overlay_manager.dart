@@ -17,6 +17,7 @@ class OverlayManager {
   void showAlarmOverlay({
     required String partnerName,
     required String partnerInitial,
+    String? partnerAvatarUrl,
     required String signalType,
     required VoidCallback onSendBack,
     VoidCallback? onDismissCallback,
@@ -29,6 +30,7 @@ class OverlayManager {
         builder: (_) => AlarmOverlay(
           partnerName: partnerName,
           partnerInitial: partnerInitial,
+          partnerAvatarUrl: partnerAvatarUrl,
           signalType: signalType,
           onSendBack: onSendBack,
           onDismiss: () {

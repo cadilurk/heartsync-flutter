@@ -562,6 +562,57 @@ app.put('/account/profile', auth, async (req, res) => {
   return res.json(ok(serializeProfile(profile)));
 });
 
+// POST /account/avatar – upload avatar image to Cloudinary
+const _avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+app.post('/account/avatar', auth, _avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      const error = fail('INVALID_INPUT');
+      return res.status(error.status).json(error.body);
+    }
+
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+      return res.status(500).json({ success: false, error: 'Cloudinary not configured' });
+    }
+
+    const folder = `avatars/${String(req.user._id)}`;
+    const publicId = `avatar_${String(req.user._id)}`;
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder, public_id: publicId, overwrite: true, resource_type: 'image' },
+        (err, result) => (err ? reject(err) : resolve(result))
+      );
+      stream.end(req.file.buffer);
+    });
+
+    const avatarUrl = cloudinary.url(uploadResult.public_id, {
+      secure: true,
+      transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'face', quality: 'auto', fetch_format: 'auto' }],
+    });
+
+    const now = new Date();
+    await profiles.updateOne(
+      { userId: req.user._id },
+      {
+        $set: { avatarUrl, updatedAt: now },
+        $setOnInsert: { userId: req.user._id, createdAt: now }
+      },
+      { upsert: true }
+    );
+    return res.json(ok({ avatarUrl }));
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
+    const serverError = fail('SERVER_ERROR', 500);
+    return res.status(serverError.status).json(serverError.body);
+  }
+});
+
 app.put('/users/me/fcm-token', auth, async (req, res) => {
   try {
     const { token } = req.body;
@@ -800,6 +851,7 @@ app.post('/signals', auth, async (req, res) => {
         const emojis = { miss: '🥺', care: '🤗', love: '💕' };
         const senderProfile = await profiles.findOne({ userId: req.user._id });
         const senderName = senderProfile?.displayName || req.user.email.split('@')[0];
+        const senderAvatarUrl = senderProfile?.avatarUrl || '';
 
         try {
           // DATA-ONLY: không dùng "notification" block → app tự hiện notification
@@ -814,6 +866,7 @@ app.post('/signals', auth, async (req, res) => {
               fromUserId: String(req.user._id),
               signalType: signalType,
               senderName: senderName,
+              senderAvatarUrl: senderAvatarUrl,
               title: `${senderName} gửi ${emojis[signalType]}`,
               body: labels[signalType]
             },

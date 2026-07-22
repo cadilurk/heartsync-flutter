@@ -121,6 +121,13 @@ class AuthProvider extends ChangeNotifier {
     } catch (_) {
       // Local logout must still clear the session even if the server call fails.
     }
+    try {
+      // So the account picker shows again next time instead of silently
+      // reusing whichever Google account was chosen last session.
+      await _firebaseAuthGateway.signOut();
+    } catch (_) {
+      // Not signed in via Google, or no network — safe to ignore.
+    }
     await _tokenStorage.clear();
     session = CurrentUserSession.empty;
     status = AuthStatus.unauthenticated;

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 
 class NotificationService {
   NotificationService._();
@@ -41,6 +42,7 @@ class NotificationService {
     required String partnerName,
     required String signalType,
     String? signalId,
+    String? avatarUrl,
   }) async {
     // Đảm bảo channel đã tạo (khi gọi từ isolate nền có thể chưa initialize()).
     await initialize();
@@ -51,11 +53,13 @@ class NotificationService {
       _ => ('💕', 'yêu bạn lắm...', 'Yêu lắm'),
     };
 
-    // Avatar dựng bằng Canvas có thể fail trong isolate nền → bỏ qua, dùng no-avatar.
+    // Ưu tiên ảnh Cloudinary thật của partner; không có (hoặc tải lỗi) mới
+    // dùng ảnh vẽ mặc định bằng Canvas.
     ByteArrayAndroidBitmap? avatarBitmap;
     MessagingStyleInformation? msgStyle;
     try {
-      final avatarBytes = await _buildAvatarBytes(partnerName);
+      final avatarBytes = await _fetchAvatarBytes(avatarUrl) ??
+          await _buildAvatarBytes(partnerName);
       avatarBitmap = ByteArrayAndroidBitmap(avatarBytes);
       final sender = Person(
         name: partnerName,
@@ -105,6 +109,19 @@ class NotificationService {
       message,
       NotificationDetails(android: androidDetails),
     );
+  }
+
+  // Tải ảnh đại diện thật từ Cloudinary; trả null nếu không có URL hoặc tải lỗi
+  // (mất mạng, isolate nền bị giới hạn thời gian...) để caller tự dùng ảnh mặc định.
+  Future<Uint8List?> _fetchAvatarBytes(String? avatarUrl) async {
+    if (avatarUrl == null || avatarUrl.isEmpty) return null;
+    try {
+      final response = await http
+          .get(Uri.parse(avatarUrl))
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) return response.bodyBytes;
+    } catch (_) {}
+    return null;
   }
 
   // Tạo avatar PNG bytes hình tròn với chữ cái đầu

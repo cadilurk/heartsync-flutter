@@ -41,16 +41,21 @@ GoRouter createRouter(AuthProvider authProvider) {
       final isPairingRoute = location.startsWith('/pairing');
       final isVerifyEmail = location == '/verify-email';
 
-      if (authProvider.status == AuthStatus.unknown ||
-          authProvider.status == AuthStatus.loading) {
+      // Only the very first, unresolved bootstrap state forces /splash — by
+      // the time bootstrap() flips status to `loading`, SplashScreen is
+      // already the current route, so this never needs to redirect elsewhere.
+      if (authProvider.status == AuthStatus.unknown) {
         return isSplash ? null : '/splash';
       }
 
-      // An auth action (phone OTP send, email verify, forgot/reset password...)
-      // is in flight on whatever screen is currently showing. These can take
-      // many seconds (Play Integrity retries etc.) — don't let a mid-flight
-      // notifyListeners() yank the user away from that screen; let it finish
-      // and decide its own navigation from the result.
+      // An auth action (login, register, phone OTP, email verify,
+      // forgot/reset password...) is in flight on whatever screen is
+      // currently showing — this includes the `loading` status itself, set
+      // by the same actions. Don't let a mid-flight notifyListeners() yank
+      // the user away from that screen (e.g. wrong-password errors would
+      // never render, since the screen gets torn down and rebuilt before its
+      // local error state can display); let it finish and decide its own
+      // navigation from the result.
       if (authProvider.isBusy) {
         return null;
       }

@@ -146,8 +146,8 @@ class _AlarmScreenState extends State<AlarmScreen>
 
   void _showOfflineSnackbar() {
     if (!mounted) return;
-    final partner = context.read<AuthProvider>().session.partner;
-    final name = _name(partner?.email);
+    final session = context.read<AuthProvider>().session;
+    final name = session.partnerDisplayName ?? _name(session.partner?.email);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('💔 $name đang offline rồi~'),
@@ -179,7 +179,8 @@ class _AlarmScreenState extends State<AlarmScreen>
   @override
   Widget build(BuildContext context) {
     final alarm = context.watch<AlarmProvider>();
-    final partner = context.watch<AuthProvider>().session.partner;
+    final session = context.watch<AuthProvider>().session;
+    final partner = session.partner;
     final isReceiving = alarm.isReceiving;
     final selected = alarm.selectedSignalType;
 
@@ -239,8 +240,9 @@ class _AlarmScreenState extends State<AlarmScreen>
 
                   // A. Partner Header Card
                   _PartnerHeaderCard(
-                    name: _name(partner?.email),
+                    name: session.partnerDisplayName ?? _name(partner?.email),
                     email: partner?.email ?? '',
+                    avatarUrl: session.partnerProfile?.avatarUrl,
                     isConnected: alarm.isConnected,
                   ),
 
@@ -384,11 +386,13 @@ class _AlarmScreenState extends State<AlarmScreen>
 class _PartnerHeaderCard extends StatelessWidget {
   final String name;
   final String email;
+  final String? avatarUrl;
   final bool isConnected;
 
   const _PartnerHeaderCard({
     required this.name,
     required this.email,
+    this.avatarUrl,
     required this.isConnected,
   });
 
@@ -412,7 +416,8 @@ class _PartnerHeaderCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Avatar
+          // Avatar — real Cloudinary photo if the partner has one, else the
+          // gradient-initial fallback.
           Container(
             width: 56,
             height: 56,
@@ -423,14 +428,31 @@ class _PartnerHeaderCard extends StatelessWidget {
               ),
             ),
             child: Center(
-              child: Text(
-                initial,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: (avatarUrl?.isNotEmpty ?? false)
+                  ? ClipOval(
+                      child: Image.network(
+                        avatarUrl!,
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, error, stackTrace) => Text(
+                          initial,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Text(
+                      initial,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 14),

@@ -19,6 +19,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
             : 'Partner',
         signalType: data['signalType'] as String? ?? 'love',
         signalId: data['signalId'] as String?,
+        avatarUrl: data['senderAvatarUrl'] as String?,
       );
     }
   } catch (e) {

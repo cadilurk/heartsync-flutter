@@ -11,6 +11,7 @@ class AccountProvider extends ChangeNotifier {
   final AuthProvider _authProvider;
 
   bool isLoading = false;
+  bool isUploadingAvatar = false;
   String? errorMessage;
 
   AccountProvider({
@@ -46,6 +47,28 @@ class AccountProvider extends ChangeNotifier {
       rethrow;
     } finally {
       isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Opens the gallery picker and uploads the chosen image as the user's
+  /// avatar. Returns the new avatar URL, or `null` if the user backed out
+  /// of the picker (not an error — callers shouldn't show a message then).
+  Future<String?> pickAndUploadAvatar() async {
+    final file = await _accountService.pickAvatarImage();
+    if (file == null) return null;
+
+    try {
+      isUploadingAvatar = true;
+      errorMessage = null;
+      notifyListeners();
+      final avatarUrl = await _accountService.uploadAvatar(file);
+      return avatarUrl;
+    } on ApiException catch (error) {
+      errorMessage = error.message;
+      rethrow;
+    } finally {
+      isUploadingAvatar = false;
       notifyListeners();
     }
   }

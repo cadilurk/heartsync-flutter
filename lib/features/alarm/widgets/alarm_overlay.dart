@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 class AlarmOverlay extends StatefulWidget {
   final String partnerName;
   final String partnerInitial;
+  final String? partnerAvatarUrl;
   final String signalType;
   final VoidCallback onSendBack;
   final VoidCallback onDismiss;
@@ -12,6 +13,7 @@ class AlarmOverlay extends StatefulWidget {
     super.key,
     required this.partnerName,
     required this.partnerInitial,
+    this.partnerAvatarUrl,
     required this.signalType,
     required this.onSendBack,
     required this.onDismiss,
@@ -117,6 +119,15 @@ class _AlarmOverlayState extends State<AlarmOverlay>
 
   double get _progress => _countdown / 30.0;
 
+  Widget _initialText() => Text(
+        widget.partnerInitial,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 30,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -177,7 +188,8 @@ class _AlarmOverlayState extends State<AlarmOverlay>
                             valueColor: AlwaysStoppedAnimation<Color>(_accentColor),
                           ),
                         ),
-                        // Avatar Circle
+                        // Avatar Circle — real Cloudinary photo when the
+                        // partner has one, else the gradient-initial fallback.
                         Container(
                           width: 74,
                           height: 74,
@@ -193,14 +205,17 @@ class _AlarmOverlayState extends State<AlarmOverlay>
                             ),
                           ),
                           alignment: Alignment.center,
-                          child: Text(
-                            widget.partnerInitial,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          child: (widget.partnerAvatarUrl?.isNotEmpty ?? false)
+                              ? ClipOval(
+                                  child: Image.network(
+                                    widget.partnerAvatarUrl!,
+                                    width: 74,
+                                    height: 74,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, error, stackTrace) => _initialText(),
+                                  ),
+                                )
+                              : _initialText(),
                         ),
                       ],
                     ),

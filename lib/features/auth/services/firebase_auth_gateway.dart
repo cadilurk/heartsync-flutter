@@ -128,4 +128,14 @@ class FirebaseAuthGateway {
     }
     return idToken;
   }
+
+  /// Signs out of both Firebase and the cached Google account so the next
+  /// `signInWithGoogle()` shows the account picker again instead of silently
+  /// reusing whichever account was chosen last time.
+  Future<void> signOut() async {
+    await Future.wait([
+      FirebaseAuth.instance.signOut(),
+      _googleSignIn.signOut(),
+    ]);
+  }
 }

@@ -154,6 +154,7 @@ class AlarmProvider extends ChangeNotifier {
     OverlayManager().showAlarmOverlay(
       partnerName: partnerName,
       partnerInitial: partnerInitial,
+      partnerAvatarUrl: _authProvider.session.partnerProfile?.avatarUrl,
       signalType: signal.signalType.name,
       onSendBack: () => sendAlarmWithType(signal.signalType),
       onDismissCallback: () {
@@ -194,11 +195,13 @@ class AlarmProvider extends ChangeNotifier {
     // 3. LUÔN hiện notification ở khay (thông báo NGOÀI app) — kể cả foreground —
     //    để chắc chắn thấy. Overlay trong app chỉ là thêm khi đang mở app.
     //    Dùng chung notificationId theo signalId nên socket + FCM không trùng.
-    final partnerName = _partnerName(_authProvider.session.partner?.email);
+    final partnerName = _authProvider.session.partnerDisplayName ??
+        _partnerName(_authProvider.session.partner?.email);
     await NotificationService().showAlarmNotification(
       partnerName: partnerName,
       signalType: type.name,
       signalId: signalId,
+      avatarUrl: _authProvider.session.partnerProfile?.avatarUrl,
     );
 
     final isForegrounded =
@@ -211,6 +214,7 @@ class AlarmProvider extends ChangeNotifier {
       OverlayManager().showAlarmOverlay(
         partnerName: partnerName,
         partnerInitial: partnerInitial,
+        partnerAvatarUrl: _authProvider.session.partnerProfile?.avatarUrl,
         signalType: type.name,
         onSendBack: () => sendAlarmWithType(type),
         onDismissCallback: () {

@@ -22,11 +22,19 @@
           }
         },
         {
-          "client_id": "236247833644-bt5uvrmfu6tvnsrfrsr75pv76fvrcqg7.apps.googleusercontent.com",
+          "client_id": "236247833644-lrkrih7337ke7bqfijae1mlpisf50eah.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.heartsync_flutter",
             "certificate_hash": "824915f0867b36a5fe86f175d5960a5575453c48"
+          }
+        },
+        {
+          "client_id": "236247833644-thi2grg0ceuui4sb5nsi1aa7ok7ckcb7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.heartsync_flutter",
+            "certificate_hash": "f286b6f74dbc5c210900baadb107b185b4040afd"
           }
         },
         {
